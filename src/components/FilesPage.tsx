@@ -1,17 +1,15 @@
-import { useState, useEffect, useCallback } from 'react';
+
+import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { FileUploadArea } from '@/components/files/FileUploadArea';
 import { 
-  Upload, 
   Search, 
   Filter,
   Download,
@@ -41,10 +39,6 @@ export const FilesPage = () => {
   const [uploading, setUploading] = useState(false);
   const [storageUsed, setStorageUsed] = useState(0);
   const [storageLimit] = useState(1024);
-  const [isDragOver, setIsDragOver] = useState(false);
-  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
-  const [renamingFile, setRenamingFile] = useState<FileItem | null>(null);
-  const [newFileName, setNewFileName] = useState('');
   const { user } = useAuth();
   const { toast } = useToast();
 
@@ -59,14 +53,14 @@ export const FilesPage = () => {
     setFilteredFiles(filtered);
   }, [files, searchTerm]);
 
-  const showToast = useCallback((title: string, description: string, variant?: "default" | "destructive") => {
+  const showToast = (title: string, description: string, variant?: "default" | "destructive") => {
     toast({
       title,
       description,
       variant,
       duration: 5000
     });
-  }, [toast]);
+  };
 
   const loadFiles = async () => {
     if (!user) return;
@@ -92,32 +86,6 @@ export const FilesPage = () => {
     }
   };
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(true);
-  }, []);
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-  }, []);
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-    const files = Array.from(e.dataTransfer.files);
-    uploadFiles(files);
-  }, []);
-
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFiles = event.target.files;
-    if (!selectedFiles) return;
-    
-    const filesArray = Array.from(selectedFiles);
-    uploadFiles(filesArray);
-    event.target.value = '';
-  };
-
   const uploadFiles = async (filesArray: File[]) => {
     if (!user) return;
 
@@ -125,7 +93,6 @@ export const FilesPage = () => {
 
     try {
       for (const file of filesArray) {
-        const fileExt = file.name.split('.').pop();
         const fileName = `${user.id}/${Date.now()}-${file.name}`;
         
         const { data: uploadData, error: uploadError } = await supabase.storage
@@ -197,7 +164,21 @@ export const FilesPage = () => {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      showToast("Success", "File downloaded successfully");
+      // Store in localStorage for offline access
+      const reader = new FileReader();
+      reader.onload = () => {
+        const savedFiles = JSON.parse(localStorage.getItem('downloadedFiles') || '[]');
+        savedFiles.push({
+          id: file.id,
+          filename: file.filename,
+          data: reader.result,
+          downloadedAt: new Date().toISOString()
+        });
+        localStorage.setItem('downloadedFiles', JSON.stringify(savedFiles));
+      };
+      reader.readAsDataURL(data);
+
+      showToast("Success", "File downloaded and saved for offline access");
     } catch (error) {
       console.error('Error downloading file:', error);
       showToast("Error", "Failed to download file", "destructive");
@@ -216,28 +197,6 @@ export const FilesPage = () => {
     } catch (error) {
       console.error('Error viewing file:', error);
       showToast("Error", "Failed to view file", "destructive");
-    }
-  };
-
-  const handleRenameFile = async () => {
-    if (!renamingFile || !newFileName) return;
-
-    try {
-      const { error } = await supabase
-        .from('files')
-        .update({ filename: newFileName })
-        .eq('id', renamingFile.id);
-
-      if (error) throw error;
-
-      showToast("Success", "File renamed successfully");
-      setRenameDialogOpen(false);
-      setRenamingFile(null);
-      setNewFileName('');
-      loadFiles();
-    } catch (error) {
-      console.error('Error renaming file:', error);
-      showToast("Error", "Failed to rename file", "destructive");
     }
   };
 
@@ -264,59 +223,16 @@ export const FilesPage = () => {
             Manage and share files with drag & drop support
           </p>
         </div>
-        <div className="flex space-x-2">
-          <input
-            type="file"
-            multiple
-            onChange={handleFileUpload}
-            className="hidden"
-            id="file-upload"
-          />
-          <Button 
-            onClick={() => document.getElementById('file-upload')?.click()}
-            disabled={uploading}
-          >
-            <Upload className="mr-2 h-4 w-4" />
-            {uploading ? 'Uploading...' : 'Upload File'}
-          </Button>
-        </div>
       </div>
 
-      {/* Drag and Drop Zone with Upload Button */}
-      <div
-        className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
-          isDragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
-        }`}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-      >
-        <Upload className="mx-auto h-12 w-12 text-gray-400" />
-        <p className="mt-4 text-lg font-semibold">
-          {isDragOver ? 'Drop files here' : 'Drag and drop files here'}
-        </p>
-        <p className="text-gray-500 mb-4">
-          or click the upload button above. Supports all file types.
-        </p>
-        <Button
-          onClick={() => document.getElementById('file-upload')?.click()}
-          disabled={uploading}
-          variant="outline"
-        >
-          <Upload className="mr-2 h-4 w-4" />
-          Choose Files
-        </Button>
-      </div>
+      <FileUploadArea onFilesSelected={uploadFiles} uploading={uploading} />
 
       {/* Storage Usage */}
       <Card>
-        <CardHeader>
-          <CardTitle className="text-lg">Storage Usage</CardTitle>
-        </CardHeader>
-        <CardContent>
+        <CardContent className="p-4">
           <div className="space-y-2">
             <div className="flex justify-between text-sm">
-              <span>Used</span>
+              <span>Storage Used</span>
               <span>{storageUsed} MB of {storageLimit} MB</span>
             </div>
             <Progress value={(storageUsed / storageLimit) * 100} className="h-2" />
@@ -352,10 +268,6 @@ export const FilesPage = () => {
             <p className="text-gray-500 text-center mb-4">
               Upload your first file to start sharing with clients
             </p>
-            <Button onClick={() => document.getElementById('file-upload')?.click()}>
-              <Upload className="mr-2 h-4 w-4" />
-              Upload File
-            </Button>
           </CardContent>
         </Card>
       ) : (
@@ -399,17 +311,6 @@ export const FilesPage = () => {
                     <Button 
                       variant="ghost" 
                       size="sm"
-                      onClick={() => {
-                        setRenamingFile(file);
-                        setNewFileName(file.filename);
-                        setRenameDialogOpen(true);
-                      }}
-                    >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      size="sm"
                       onClick={() => handleDeleteFile(file.id, file.file_path)}
                     >
                       <Trash2 className="h-4 w-4" />
@@ -421,41 +322,6 @@ export const FilesPage = () => {
           ))}
         </div>
       )}
-
-      {/* Rename Dialog */}
-      <Dialog open={renameDialogOpen} onOpenChange={setRenameDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Rename File</DialogTitle>
-            <DialogDescription>
-              Enter a new name for the file.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="new-filename">New filename</Label>
-              <Input
-                id="new-filename"
-                value={newFileName}
-                onChange={(e) => setNewFileName(e.target.value)}
-                placeholder="Enter new filename"
-              />
-            </div>
-            <div className="flex space-x-2">
-              <Button onClick={handleRenameFile} className="flex-1">
-                Rename
-              </Button>
-              <Button 
-                variant="outline" 
-                onClick={() => setRenameDialogOpen(false)}
-                className="flex-1"
-              >
-                Cancel
-              </Button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };

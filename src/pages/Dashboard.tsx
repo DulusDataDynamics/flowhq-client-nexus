@@ -1,8 +1,6 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
-import { usePlanLimits } from '@/hooks/usePlanLimits';
-import { useSubscription } from '@/hooks/useSubscription';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { AIAssistant } from '@/components/AIAssistant';
 import { ClientsPage } from '@/components/ClientsPage';
@@ -10,21 +8,16 @@ import { FilesPage } from '@/components/FilesPage';
 import { InvoicesPage } from '@/components/InvoicesPage';
 import { SettingsPage } from '@/components/SettingsPage';
 import { AuthForm } from '@/components/AuthForm';
+import { DashboardStats } from '@/components/dashboard/DashboardStats';
+import { QuickActions } from '@/components/dashboard/QuickActions';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
-import { 
-  BarChart3, 
-  FileText, 
-  Bot, 
-  Users,
-  TrendingUp,
-  Activity,
-  DollarSign,
-  Zap
-} from 'lucide-react';
+import { usePlanLimits } from '@/hooks/usePlanLimits';
+import { useSubscription } from '@/hooks/useSubscription';
+import { Zap } from 'lucide-react';
 
-const DashboardOverview = () => {
+const DashboardOverview = ({ onNavigate }: { onNavigate: (page: string) => void }) => {
   const [stats, setStats] = useState({
     totalProjects: 0,
     totalFiles: 0,
@@ -61,23 +54,6 @@ const DashboardOverview = () => {
     }
   };
 
-  const handleQuickAction = (action: string) => {
-    switch (action) {
-      case 'add-client':
-        window.location.href = '/dashboard#clients';
-        break;
-      case 'upload-file':
-        window.location.href = '/dashboard#files';
-        break;
-      case 'create-invoice':
-        window.location.href = '/dashboard#invoices';
-        break;
-      case 'chat-ai':
-        window.location.href = '/dashboard#flowbot';
-        break;
-    }
-  };
-
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -93,60 +69,7 @@ const DashboardOverview = () => {
         </Button>
       </div>
 
-      {/* Stats Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Clients</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalProjects}</div>
-            <p className="text-xs text-muted-foreground">
-              {planLimits.maxClients === -1 ? 'Unlimited' : `of ${planLimits.maxClients} max`}
-            </p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Files Shared</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.totalFiles}</div>
-            <p className="text-xs text-muted-foreground">
-              Total uploaded files
-            </p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">AI Interactions</CardTitle>
-            <Bot className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.aiInteractions}</div>
-            <p className="text-xs text-muted-foreground">
-              FlowBot conversations
-            </p>
-          </CardContent>
-        </Card>
-        
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Generated Content</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{stats.generatedContent}</div>
-            <p className="text-xs text-muted-foreground">
-              AI generated items
-            </p>
-          </CardContent>
-        </Card>
-      </div>
+      <DashboardStats stats={stats} />
 
       {/* Plan Usage */}
       <Card>
@@ -229,51 +152,10 @@ const DashboardOverview = () => {
         </CardContent>
       </Card>
 
-      {/* Quick Actions */}
+      {/* Quick Actions and FlowBot Info */}
       <div className="grid gap-4 md:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-            <CardDescription>
-              Common tasks to get you started
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2">
-            <Button 
-              className="w-full justify-start" 
-              variant="outline"
-              onClick={() => handleQuickAction('add-client')}
-            >
-              <Users className="mr-2 h-4 w-4" />
-              Add New Client
-            </Button>
-            <Button 
-              className="w-full justify-start" 
-              variant="outline"
-              onClick={() => handleQuickAction('upload-file')}
-            >
-              <FileText className="mr-2 h-4 w-4" />
-              Upload File
-            </Button>
-            <Button 
-              className="w-full justify-start" 
-              variant="outline"
-              onClick={() => handleQuickAction('create-invoice')}
-            >
-              <DollarSign className="mr-2 h-4 w-4" />
-              Create Invoice
-            </Button>
-            <Button 
-              className="w-full justify-start" 
-              variant="outline"
-              onClick={() => handleQuickAction('chat-ai')}
-            >
-              <Bot className="mr-2 h-4 w-4" />
-              Chat with FlowBot AI
-            </Button>
-          </CardContent>
-        </Card>
-
+        <QuickActions onNavigate={onNavigate} />
+        
         <Card>
           <CardHeader>
             <CardTitle>FlowBot AI Assistant</CardTitle>
@@ -319,7 +201,7 @@ const Dashboard = () => {
   const renderCurrentPage = () => {
     switch (currentPage) {
       case 'dashboard':
-        return <DashboardOverview />;
+        return <DashboardOverview onNavigate={setCurrentPage} />;
       case 'clients':
         return <ClientsPage />;
       case 'files':
@@ -331,7 +213,7 @@ const Dashboard = () => {
       case 'settings':
         return <SettingsPage />;
       default:
-        return <DashboardOverview />;
+        return <DashboardOverview onNavigate={setCurrentPage} />;
     }
   };
 

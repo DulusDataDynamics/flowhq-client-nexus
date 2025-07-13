@@ -1,20 +1,18 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { FileUploadArea } from '@/components/files/FileUploadArea';
+import { ChatInterface } from '@/components/ai/ChatInterface';
 import { 
-  Send, 
   Bot, 
   User, 
-  Upload, 
-  Download,
   FileText,
   Image,
   BarChart3,
+  Upload,
   Loader2
 } from 'lucide-react';
 
@@ -31,11 +29,9 @@ export const AIAssistant = () => {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [file, setFile] = useState<File | null>(null);
-  const [isDragOver, setIsDragOver] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -93,34 +89,6 @@ export const AIAssistant = () => {
     setMessages(formattedMessages);
   };
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(true);
-  }, []);
-
-  const handleDragLeave = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-  }, []);
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    setIsDragOver(false);
-    const droppedFile = e.dataTransfer.files[0];
-    if (droppedFile) {
-      setFile(droppedFile);
-      showToast("File selected", `${droppedFile.name} ready for analysis`);
-    }
-  }, [showToast]);
-
-  const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const selectedFile = event.target.files?.[0];
-    if (selectedFile) {
-      setFile(selectedFile);
-      showToast("File selected", `${selectedFile.name} ready for analysis`);
-    }
-  };
-
   const uploadFile = async (file: File) => {
     if (!user) return null;
 
@@ -168,9 +136,6 @@ export const AIAssistant = () => {
       if (file) {
         fileUrl = await uploadFile(file);
         setFile(null);
-        if (fileInputRef.current) {
-          fileInputRef.current.value = '';
-        }
       }
 
       console.log('Sending message to FlowBot:', input);
@@ -238,15 +203,15 @@ export const AIAssistant = () => {
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      sendMessage();
+  const handleFilesSelected = (files: File[]) => {
+    if (files.length > 0) {
+      setFile(files[0]);
+      showToast("File selected", `${files[0].name} ready for analysis`);
     }
   };
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col space-y-6">
       <Card className="flex-1 flex flex-col">
         <CardHeader>
           <CardTitle className="flex items-center">
@@ -259,28 +224,9 @@ export const AIAssistant = () => {
         </CardHeader>
         
         <CardContent className="flex-1 flex flex-col">
-          {/* Drag and Drop Zone with Upload Button */}
-          <div
-            className={`mb-4 border-2 border-dashed rounded-lg p-4 text-center transition-colors ${
-              isDragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
-            }`}
-            onDragOver={handleDragOver}
-            onDragLeave={handleDragLeave}
-            onDrop={handleDrop}
-          >
-            <Upload className="mx-auto h-8 w-8 text-gray-400" />
-            <p className="text-sm text-gray-600">
-              {isDragOver ? 'Drop files here' : 'Drag and drop files for AI analysis'}
-            </p>
-            <p className="text-xs text-gray-500 mb-2">or</p>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => fileInputRef.current?.click()}
-            >
-              <Upload className="mr-2 h-4 w-4" />
-              Choose File
-            </Button>
+          {/* File Upload Area */}
+          <div className="mb-4">
+            <FileUploadArea onFilesSelected={handleFilesSelected} uploading={false} />
           </div>
 
           {/* Messages */}
@@ -363,63 +309,14 @@ export const AIAssistant = () => {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input area */}
-          <div className="border-t pt-4">
-            {file && (
-              <div className="mb-2 p-2 bg-blue-50 rounded flex items-center justify-between">
-                <span className="text-sm">📎 {file.name}</span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setFile(null);
-                    if (fileInputRef.current) {
-                      fileInputRef.current.value = '';
-                    }
-                  }}
-                >
-                  Remove
-                </Button>
-              </div>
-            )}
-            
-            <div className="flex items-end space-x-2">
-              <div className="flex-1">
-                <Input
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Ask me to generate documents, create images, analyze files, sort data, create spreadsheets, automate workflows..."
-                  disabled={loading}
-                  className="resize-none"
-                />
-              </div>
-              
-              <input
-                ref={fileInputRef}
-                type="file"
-                onChange={handleFileUpload}
-                className="hidden"
-              />
-              
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => fileInputRef.current?.click()}
-                disabled={loading}
-              >
-                <Upload className="h-4 w-4" />
-              </Button>
-              
-              <Button
-                onClick={sendMessage}
-                disabled={loading || (!input.trim() && !file)}
-                size="icon"
-              >
-                <Send className="h-4 w-4" />
-              </Button>
-            </div>
-          </div>
+          <ChatInterface
+            input={input}
+            setInput={setInput}
+            onSendMessage={sendMessage}
+            loading={loading}
+            file={file}
+            setFile={setFile}
+          />
         </CardContent>
       </Card>
     </div>

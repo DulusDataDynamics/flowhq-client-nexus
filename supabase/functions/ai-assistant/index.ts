@@ -1,270 +1,195 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+};
+
+const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+const supabaseUrl = Deno.env.get('SUPABASE_URL');
+const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { message, fileUrl, userId } = await req.json()
-    const openAIKey = Deno.env.get('OPENAI_API_KEY')
-    
-    if (!openAIKey) {
-      console.error('OpenAI API key not configured')
-      return new Response(
-        JSON.stringify({ 
-          error: 'OpenAI API key not configured',
-          response: 'I apologize, but my AI capabilities are not properly configured. Please contact the administrator to set up the OpenAI API key.'
-        }),
-        { 
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-        }
-      )
+    console.log('FlowBot AI Assistant function started');
+
+    if (!openAIApiKey) {
+      throw new Error('OpenAI API key not configured');
     }
 
-    console.log('FlowBot processing request for user:', userId)
-    console.log('Message:', message)
+    const { message, fileUrl, userId } = await req.json();
+    console.log('Request received:', { message, fileUrl, userId });
 
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
+    if (!message && !fileUrl) {
+      throw new Error('No message or file provided');
+    }
 
-    let systemPrompt = `You are FlowBot, an advanced AI assistant for FlowHQ - a premium client collaboration platform. You excel at:
+    let fileContent = '';
+    let fileAnalysis = '';
 
-1. DOCUMENT GENERATION: Create professional documents in any format (PDF, DOCX, TXT, etc.) with proper formatting
-2. IMAGE GENERATION: Create high-quality images, graphics, and visual content using DALL-E
-3. FILE ANALYSIS: Analyze uploaded files (PDF, CSV, DOCX, XLSX, TXT, ZIP, images) and extract meaningful data
-4. SPREADSHEET CREATION: Generate organized spreadsheets from any data with proper columns, headers, and formatting
-5. DATA SORTING: Process and organize data from documents or text into structured, sortable formats
-6. WORKFLOW AUTOMATION: Help automate business processes and create efficient workflows
-7. TEXT UNDERSTANDING: Comprehend and process any text content for analysis, summarization, or transformation
-8. FILE PARSING: Parse and understand content from various file formats
-9. WORKFLOW LOGIC: Create logical workflows and process automation
-
-Always provide detailed, actionable results. When generating content, ensure it's professional and well-structured. For file analysis, extract all relevant information and present it clearly. Be efficient and helpful in all responses.`
-
-    let userPrompt = message
-    let fileContent = null
-
-    // Handle file analysis if file is uploaded
-    if (fileUrl) {
+    // Handle file processing if fileUrl is provided
+    if (fileUrl && supabaseUrl && supabaseServiceKey) {
+      console.log('Processing file:', fileUrl);
+      
+      const supabase = createClient(supabaseUrl, supabaseServiceKey);
+      
       try {
-        console.log('Processing uploaded file:', fileUrl)
-        const { data: fileData } = await supabase.storage
+        const { data: fileData, error: fileError } = await supabase.storage
           .from('user-files')
-          .download(fileUrl)
-        
-        if (fileData) {
-          fileContent = await fileData.text()
-          userPrompt += `\n\nFile content to analyze and process:\n${fileContent.substring(0, 8000)}...`
-          console.log('File content loaded for analysis, length:', fileContent.length)
+          .download(fileUrl);
+
+        if (fileError) {
+          console.error('Error downloading file:', fileError);
+          fileAnalysis = 'File uploaded but could not be processed for analysis.';
+        } else {
+          console.log('File downloaded successfully');
+          
+          // Convert file to text for analysis
+          const text = await fileData.text();
+          fileContent = text.substring(0, 4000); // Limit content size
+          fileAnalysis = `File analyzed: ${fileUrl.split('/').pop()}`;
+          console.log('File content extracted, length:', fileContent.length);
         }
       } catch (error) {
-        console.error('Error processing file:', error)
-        userPrompt += '\n\nNote: File upload detected but could not be processed. Please describe what you need help with.'
+        console.error('File processing error:', error);
+        fileAnalysis = 'File uploaded but analysis failed.';
       }
     }
 
-    // Determine if user wants image generation
-    const imageKeywords = ['image', 'picture', 'photo', 'generate image', 'create image', 'visual', 'graphic', 'illustration', 'draw', 'design', 'logo', 'chart visualization']
-    const wantsImage = imageKeywords.some(keyword => message.toLowerCase().includes(keyword))
+    // Prepare the prompt for OpenAI
+    let systemPrompt = `You are FlowBot, a powerful AI assistant designed to help users with various tasks. You can:
 
-    // Determine if user wants spreadsheet/data organization
-    const dataKeywords = ['spreadsheet', 'excel', 'csv', 'table', 'organize data', 'sort data', 'columns', 'rows', 'data analysis']
-    const wantsDataProcessing = dataKeywords.some(keyword => message.toLowerCase().includes(keyword)) || fileContent
+1. **Document Generation**: Create documents in any format (PDF, DOCX, TXT, etc.)
+2. **Image Generation**: Create images based on descriptions
+3. **File Analysis**: Analyze uploaded files and extract meaningful information
+4. **Spreadsheet Creation**: Generate structured data in spreadsheet format
+5. **Data Sorting**: Organize and sort data from documents or text
+6. **Workflow Automation**: Help automate business processes
+7. **Text Understanding**: Comprehend and process any text input
 
-    let response = ''
-    let metadata = {}
+You should provide helpful, accurate, and detailed responses. When creating content, be thorough and professional.`;
 
-    if (wantsImage) {
-      console.log('Generating image with DALL-E')
-      try {
-        const imageResponse = await fetch('https://api.openai.com/v1/images/generations', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${openAIKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: "dall-e-3",
-            prompt: message,
-            n: 1,
-            size: "1024x1024",
-            quality: "standard"
-          }),
-        })
+    let userPrompt = message || 'Please analyze the uploaded file.';
 
-        if (imageResponse.ok) {
-          const imageData = await imageResponse.json()
-          const imageUrl = imageData.data[0].url
-          
-          response = `🎨 **Image Generated Successfully!**
+    // Add file content to the prompt if available
+    if (fileContent) {
+      userPrompt += `\n\nFile content to analyze:\n${fileContent}`;
+    }
 
-I've created a high-quality image based on your request: "${message}"
+    console.log('Sending request to OpenAI...');
 
-**Image Details:**
-- Resolution: 1024x1024 pixels
-- Quality: Professional standard
-- Generated with DALL-E 3
+    // Determine if this is an image generation request
+    const isImageRequest = message && (
+      message.toLowerCase().includes('generate image') ||
+      message.toLowerCase().includes('create image') ||
+      message.toLowerCase().includes('draw') ||
+      message.toLowerCase().includes('picture') ||
+      message.toLowerCase().includes('photo')
+    );
 
-The image has been generated and is ready for download or use in your projects.
+    let response;
+    let metadata = {};
 
-Would you like me to create variations of this image or help you with anything else?`
-          
-          metadata = {
-            type: 'image_generation',
-            imageUrl: imageUrl,
-            prompt: message
-          }
+    if (isImageRequest) {
+      console.log('Processing image generation request');
+      
+      // Use DALL-E for image generation
+      const imageResponse = await fetch('https://api.openai.com/v1/images/generations', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openAIApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'dall-e-3',
+          prompt: userPrompt,
+          n: 1,
+          size: '1024x1024',
+          quality: 'standard'
+        }),
+      });
 
-          await supabase
-            .from('generated_content')
-            .insert({
-              user_id: userId,
-              content_type: 'image',
-              title: `Generated Image: ${message.substring(0, 50)}...`,
-              content_data: { imageUrl, prompt: message },
-              prompt: message
-            })
+      const imageData = await imageResponse.json();
+      console.log('Image generation response:', imageData);
 
-          console.log('Image generation completed and saved')
-        } else {
-          const errorData = await imageResponse.text()
-          console.error('Image generation failed:', errorData)
-          throw new Error('Image generation failed: ' + errorData)
-        }
-      } catch (error) {
-        console.error('Image generation error:', error)
-        response = "I apologize, but I encountered an issue generating the image. Please try again with a more specific description, or let me know if you'd like help with document generation, file analysis, or data processing instead."
+      if (imageData.error) {
+        throw new Error(`Image generation failed: ${imageData.error.message}`);
+      }
+
+      if (imageData.data && imageData.data[0]) {
+        metadata.imageUrl = imageData.data[0].url;
+        response = `I've generated an image based on your request: "${userPrompt}". The image is displayed above.`;
+      } else {
+        throw new Error('No image was generated');
       }
     } else {
-      console.log('Generating comprehensive response with GPT')
+      console.log('Processing text generation request');
       
-      // Enhanced system prompt for better responses
-      if (wantsDataProcessing || fileContent) {
-        systemPrompt += `\n\nSPECIAL FOCUS: Data Analysis & Spreadsheet Creation
-- When processing data, create well-structured tables with clear headers
-- Organize information logically with proper categorization
-- Provide summaries and insights about the data
-- Suggest actionable next steps based on the analysis`
+      // Use GPT for text generation
+      const textResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${openAIApiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'gpt-4o-mini',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt }
+          ],
+          max_tokens: 2000,
+          temperature: 0.7,
+        }),
+      });
+
+      const textData = await textResponse.json();
+      console.log('Text generation response received');
+
+      if (textData.error) {
+        throw new Error(`Text generation failed: ${textData.error.message}`);
       }
 
-      try {
-        const chatResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${openAIKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: 'gpt-4o-mini',
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: userPrompt }
-            ],
-            max_tokens: 3000,
-            temperature: 0.7,
-          }),
-        })
-
-        if (chatResponse.ok) {
-          const chatData = await chatResponse.json()
-          response = chatData.choices[0].message.content
-
-          // Enhanced metadata for different content types
-          if (fileContent) {
-            metadata = {
-              type: 'file_analysis',
-              hasFileContent: true,
-              fileProcessed: true
-            }
-          } else if (wantsDataProcessing) {
-            metadata = {
-              type: 'data_processing',
-              hasStructuredData: true
-            }
-          } else if (response.includes('workflow') || response.includes('automation')) {
-            metadata = {
-              type: 'workflow_automation',
-              hasWorkflowLogic: true
-            }
-          } else {
-            metadata = {
-              type: 'general_assistance',
-              responseType: 'comprehensive'
-            }
-          }
-
-          // Save generated content for complex responses
-          if (response.length > 500 || fileContent || wantsDataProcessing) {
-            await supabase
-              .from('generated_content')
-              .insert({
-                user_id: userId,
-                content_type: 'document',
-                title: `FlowBot Response: ${message.substring(0, 50)}...`,
-                content_data: { 
-                  response: response,
-                  analysis: fileContent ? 'File processed and analyzed' : 'Comprehensive response generated',
-                  metadata: metadata
-                },
-                prompt: message
-              })
-          }
-
-          console.log('Comprehensive response generated successfully')
-        } else {
-          const errorData = await chatResponse.text()
-          console.error('Chat completion failed:', errorData)
-          throw new Error('Chat completion failed: ' + errorData)
+      if (textData.choices && textData.choices[0]) {
+        response = textData.choices[0].message.content;
+        
+        // Add file analysis info if applicable
+        if (fileAnalysis) {
+          response = `${fileAnalysis}\n\n${response}`;
         }
-      } catch (error) {
-        console.error('Chat completion error:', error)
-        response = `I apologize, but I'm having trouble processing your request right now. 
-
-However, I'm FlowBot and I'm here to help you with:
-🔹 Document generation in any format
-🔹 Image creation and design
-🔹 File analysis and data extraction
-🔹 Spreadsheet creation and data organization
-🔹 Workflow automation
-🔹 Text processing and understanding
-
-Please try rephrasing your request, or let me know specifically what you'd like me to help you create or analyze!`
+      } else {
+        throw new Error('No response generated');
       }
     }
 
-    return new Response(
-      JSON.stringify({ 
-        response,
-        metadata,
-        timestamp: new Date().toISOString()
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
-    )
+    console.log('FlowBot response generated successfully');
+
+    return new Response(JSON.stringify({ 
+      response,
+      metadata 
+    }), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 200,
+    });
 
   } catch (error) {
-    console.error('Error in FlowBot function:', error)
-    return new Response(
-      JSON.stringify({ 
-        error: 'FlowBot encountered an error',
-        response: 'I apologize for the technical difficulty. Please try your request again, and I\'ll do my best to help you with document generation, image creation, file analysis, or workflow automation.'
-      }),
-      { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
-    )
+    console.error('Error in FlowBot function:', error);
+    
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+    
+    return new Response(JSON.stringify({ 
+      error: errorMessage,
+      response: `I apologize, but I'm experiencing technical difficulties. Error: ${errorMessage}. Please try again, and I'll do my best to help you with document generation, image creation, file analysis, spreadsheet creation, data sorting, workflow automation, or text understanding!`
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+    });
   }
-})
+});
