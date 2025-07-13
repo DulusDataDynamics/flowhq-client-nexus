@@ -1,30 +1,12 @@
 
 import React, { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { useToast } from '@/hooks/use-toast';
-import { Plus, Trash2, Edit2, Download, FileSpreadsheet, FileText, File } from 'lucide-react';
 import { exportClientData } from '@/utils/exportUtils';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from '@/components/ui/table';
-import { Checkbox } from '@/components/ui/checkbox';
+import { ClientsHeader } from '@/components/clients/ClientsHeader';
+import { ClientForm } from '@/components/clients/ClientForm';
+import { ClientsTable } from '@/components/clients/ClientsTable';
 
 interface Client {
   id: string;
@@ -115,9 +97,7 @@ export const ClientsPage = () => {
         });
       }
 
-      setFormData({ name: '', description: '', status: 'active' });
-      setIsCreating(false);
-      setEditingClient(null);
+      handleCancel();
       loadClients();
     } catch (error) {
       console.error('Error saving client:', error);
@@ -164,6 +144,12 @@ export const ClientsPage = () => {
     setIsCreating(true);
   };
 
+  const handleCancel = () => {
+    setIsCreating(false);
+    setEditingClient(null);
+    setFormData({ name: '', description: '', status: 'active' });
+  };
+
   const handleExport = async (format: 'pdf' | 'word' | 'excel') => {
     setExporting(true);
     try {
@@ -199,181 +185,31 @@ export const ClientsPage = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">Clients</h2>
-          <p className="text-muted-foreground">
-            Manage your client projects and relationships
-          </p>
-        </div>
-        <div className="flex gap-2">
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="outline" disabled={exporting}>
-                <Download className="mr-2 h-4 w-4" />
-                Export {selectedClients.length > 0 && `(${selectedClients.length})`}
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent>
-              <DropdownMenuItem onClick={() => handleExport('excel')}>
-                <FileSpreadsheet className="mr-2 h-4 w-4" />
-                Export as Excel
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleExport('pdf')}>
-                <FileText className="mr-2 h-4 w-4" />
-                Export as PDF
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => handleExport('word')}>
-                <File className="mr-2 h-4 w-4" />
-                Export as Word
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          <Button onClick={() => setIsCreating(true)}>
-            <Plus className="mr-2 h-4 w-4" />
-            Add Client
-          </Button>
-        </div>
-      </div>
+      <ClientsHeader
+        selectedCount={selectedClients.length}
+        exporting={exporting}
+        onExport={handleExport}
+        onAddClient={() => setIsCreating(true)}
+      />
 
-      {isCreating && (
-        <Card>
-          <CardHeader>
-            <CardTitle>{editingClient ? 'Edit Client' : 'Add New Client'}</CardTitle>
-            <CardDescription>
-              {editingClient ? 'Update client information' : 'Create a new client project'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <Label htmlFor="name">Client Name</Label>
-                <Input
-                  id="name"
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  placeholder="Enter client name"
-                  required
-                />
-              </div>
-              <div>
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Describe the client project"
-                  rows={3}
-                />
-              </div>
-              <div>
-                <Label htmlFor="status">Status</Label>
-                <select
-                  id="status"
-                  value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-                  <option value="completed">Completed</option>
-                </select>
-              </div>
-              <div className="flex gap-2">
-                <Button type="submit" disabled={loading}>
-                  {loading ? 'Saving...' : (editingClient ? 'Update Client' : 'Create Client')}
-                </Button>
-                <Button 
-                  type="button" 
-                  variant="outline" 
-                  onClick={() => {
-                    setIsCreating(false);
-                    setEditingClient(null);
-                    setFormData({ name: '', description: '', status: 'active' });
-                  }}
-                >
-                  Cancel
-                </Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
-      )}
+      <ClientForm
+        isVisible={isCreating}
+        editingClient={editingClient}
+        formData={formData}
+        loading={loading}
+        onFormDataChange={setFormData}
+        onSubmit={handleSubmit}
+        onCancel={handleCancel}
+      />
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Client List</CardTitle>
-          <CardDescription>
-            All your client projects ({clients.length} total)
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-12">
-                  <Checkbox
-                    checked={selectedClients.length === clients.length && clients.length > 0}
-                    onCheckedChange={selectAllClients}
-                  />
-                </TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Description</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead>Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {clients.map((client) => (
-                <TableRow key={client.id}>
-                  <TableCell>
-                    <Checkbox
-                      checked={selectedClients.includes(client.id)}
-                      onCheckedChange={() => toggleClientSelection(client.id)}
-                    />
-                  </TableCell>
-                  <TableCell className="font-medium">{client.name}</TableCell>
-                  <TableCell>{client.description || 'No description'}</TableCell>
-                  <TableCell>
-                    <span className={`px-2 py-1 rounded-full text-xs ${
-                      client.status === 'active' ? 'bg-green-100 text-green-800' :
-                      client.status === 'completed' ? 'bg-blue-100 text-blue-800' :
-                      'bg-gray-100 text-gray-800'
-                    }`}>
-                      {client.status || 'active'}
-                    </span>
-                  </TableCell>
-                  <TableCell>{new Date(client.created_at).toLocaleDateString()}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-2">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleEdit(client)}
-                      >
-                        <Edit2 className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDelete(client.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </tbody>
-          </Table>
-          {clients.length === 0 && (
-            <div className="text-center py-8 text-muted-foreground">
-              No clients found. Create your first client to get started.
-            </div>
-          )}
-        </CardContent>
-      </Card>
+      <ClientsTable
+        clients={clients}
+        selectedClients={selectedClients}
+        onClientSelect={toggleClientSelection}
+        onSelectAll={selectAllClients}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+      />
     </div>
   );
 };
