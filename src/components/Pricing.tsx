@@ -2,9 +2,14 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Check, Zap } from "lucide-react";
+import { Check, Zap, Loader2 } from "lucide-react";
+import { useSubscription } from "@/hooks/useSubscription";
+import { useAuth } from "@/hooks/useAuth";
 
 const Pricing = () => {
+  const { createCheckoutSession, startFreeTrial, loading } = useSubscription();
+  const { user } = useAuth();
+
   const plans = [
     {
       name: "Free Trial",
@@ -20,7 +25,8 @@ const Pricing = () => {
         "Community Support"
       ],
       cta: "Start Free Trial",
-      popular: false
+      popular: false,
+      action: () => startFreeTrial()
     },
     {
       name: "Professional",
@@ -39,7 +45,8 @@ const Pricing = () => {
         "FlowBot AI Assistant"
       ],
       cta: "Start Professional",
-      popular: true
+      popular: true,
+      action: () => createCheckoutSession('Professional')
     },
     {
       name: "Agency",
@@ -58,9 +65,20 @@ const Pricing = () => {
         "Custom Integrations"
       ],
       cta: "Contact Sales",
-      popular: false
+      popular: false,
+      action: () => createCheckoutSession('Agency')
     }
   ];
+
+  const handlePlanAction = (plan: any) => {
+    if (!user && plan.name !== "Free Trial") {
+      // Redirect to sign-up for paid plans
+      window.location.href = '/dashboard';
+      return;
+    }
+    
+    plan.action();
+  };
 
   return (
     <section id="pricing" className="py-20 bg-gradient-to-br from-gray-50 to-blue-50">
@@ -115,13 +133,22 @@ const Pricing = () => {
                 </div>
                 
                 <Button 
+                  onClick={() => handlePlanAction(plan)}
+                  disabled={loading}
                   className={`w-full py-3 text-lg font-semibold rounded-xl transition-all ${
                     plan.popular 
                       ? 'bg-white text-blue-600 hover:bg-blue-50' 
                       : 'bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white'
                   }`}
                 >
-                  {plan.cta}
+                  {loading ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    plan.cta
+                  )}
                 </Button>
                 
                 <div className="space-y-4">

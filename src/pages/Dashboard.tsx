@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { DashboardLayout } from '@/components/DashboardLayout';
@@ -21,6 +20,7 @@ import {
   DollarSign,
   Zap
 } from 'lucide-react';
+import { usePlanLimits } from '@/hooks/usePlanLimits';
 
 const DashboardOverview = () => {
   const [stats, setStats] = useState({
@@ -30,6 +30,7 @@ const DashboardOverview = () => {
     generatedContent: 0
   });
   const { user } = useAuth();
+  const { planLimits } = usePlanLimits();
 
   useEffect(() => {
     loadDashboardStats();
@@ -82,7 +83,7 @@ const DashboardOverview = () => {
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalProjects}</div>
             <p className="text-xs text-muted-foreground">
-              +100% from last month
+              {planLimits.maxClients === -1 ? 'Unlimited' : `of ${planLimits.maxClients} max`}
             </p>
           </CardContent>
         </Card>
@@ -130,7 +131,7 @@ const DashboardOverview = () => {
       {/* Plan Usage */}
       <Card>
         <CardHeader>
-          <CardTitle>Plan Usage</CardTitle>
+          <CardTitle>Plan Usage - {planLimits.plan.charAt(0).toUpperCase() + planLimits.plan.slice(1)} Plan</CardTitle>
           <CardDescription>Your current plan limits and usage</CardDescription>
         </CardHeader>
         <CardContent>
@@ -138,27 +139,42 @@ const DashboardOverview = () => {
             <div>
               <div className="flex justify-between text-sm mb-1">
                 <span>Active Clients</span>
-                <span>{stats.totalProjects} of 1</span>
+                <span>
+                  {stats.totalProjects} of {planLimits.maxClients === -1 ? '∞' : planLimits.maxClients}
+                </span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div 
-                  className="bg-blue-600 h-2 rounded-full" 
-                  style={{ width: `${Math.min((stats.totalProjects / 1) * 100, 100)}%` }}
+                  className={`h-2 rounded-full ${
+                    planLimits.maxClients === -1 ? 'bg-green-600' : 
+                    (stats.totalProjects / planLimits.maxClients) >= 0.8 ? 'bg-red-600' : 'bg-blue-600'
+                  }`}
+                  style={{ 
+                    width: planLimits.maxClients === -1 ? '20%' : 
+                           `${Math.min((stats.totalProjects / planLimits.maxClients) * 100, 100)}%` 
+                  }}
                 ></div>
               </div>
             </div>
             <div>
               <div className="flex justify-between text-sm mb-1">
                 <span>Storage Used</span>
-                <span>0 MB of 1 GB</span>
+                <span>0 MB of {planLimits.maxStorage} GB</span>
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div className="bg-blue-600 h-2 rounded-full" style={{ width: '0%' }}></div>
               </div>
             </div>
-            <Button variant="outline" className="w-full">
-              Upgrade Plan
-            </Button>
+            {planLimits.plan === 'free' && (
+              <Button variant="outline" className="w-full">
+                Start Free Trial
+              </Button>
+            )}
+            {(planLimits.plan === 'trial' || planLimits.plan === 'free') && (
+              <Button variant="outline" className="w-full">
+                Upgrade Plan
+              </Button>
+            )}
           </div>
         </CardContent>
       </Card>
