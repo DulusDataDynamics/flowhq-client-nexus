@@ -17,6 +17,8 @@ import {
   Zap
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/integrations/supabase/client';
+import { useEffect, useState as useStateHook } from 'react';
 
 interface DashboardLayoutProps {
   children: React.ReactNode;
@@ -26,9 +28,29 @@ interface DashboardLayoutProps {
 
 export const DashboardLayout = ({ children, currentPage, onPageChange }: DashboardLayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [clientCount, setClientCount] = useStateHook(0);
   const { signOut, user } = useAuth();
   const { planLimits } = usePlanLimits();
   const { createCheckoutSession, loading } = useSubscription();
+
+  useEffect(() => {
+    loadClientCount();
+  }, [user]);
+
+  const loadClientCount = async () => {
+    if (!user) return;
+
+    try {
+      const { count } = await supabase
+        .from('projects')
+        .select('id', { count: 'exact' })
+        .eq('user_id', user.id);
+      
+      setClientCount(count || 0);
+    } catch (error) {
+      console.error('Error loading client count:', error);
+    }
+  };
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -47,8 +69,9 @@ export const DashboardLayout = ({ children, currentPage, onPageChange }: Dashboa
     await createCheckoutSession(planName);
   };
 
-  const getStoragePercentage = () => {
-    return planLimits.maxStorage > 0 ? (0 / (planLimits.maxStorage * 1024)) * 100 : 0;
+  const getClientUsagePercentage = () => {
+    if (planLimits.maxClients === -1) return 20;
+    return Math.min((clientCount / planLimits.maxClients) * 100, 100);
   };
 
   return (
@@ -89,16 +112,16 @@ export const DashboardLayout = ({ children, currentPage, onPageChange }: Dashboa
                   {planLimits.plan.charAt(0).toUpperCase() + planLimits.plan.slice(1)} Plan
                 </span>
                 <span className="text-xs text-blue-600">
-                  {planLimits.maxClients === -1 ? 'Unlimited' : `0 of ${planLimits.maxClients} clients`}
+                  {planLimits.maxClients === -1 ? 'Unlimited' : `${clientCount} of ${planLimits.maxClients} clients`}
                 </span>
               </div>
               <div className="w-full bg-blue-200 rounded-full h-1.5">
                 <div 
                   className="bg-blue-600 h-1.5 rounded-full" 
-                  style={{ width: planLimits.maxClients === -1 ? '20%' : '0%' }}
+                  style={{ width: `${getClientUsagePercentage()}%` }}
                 ></div>
               </div>
-              {planLimits.plan === 'free' && (
+              {(planLimits.plan === 'free' || planLimits.plan === 'trial') && (
                 <Button 
                   size="sm" 
                   className="w-full mt-2 text-xs"
