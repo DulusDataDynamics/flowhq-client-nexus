@@ -20,6 +20,9 @@ serve(async (req) => {
       throw new Error('OpenAI API key not configured')
     }
 
+    console.log('Processing request for user:', userId)
+    console.log('Message:', message)
+
     // Initialize Supabase client
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -44,6 +47,7 @@ Always be helpful, professional, and efficient. When generating content, provide
     // If there's a file, download and analyze it
     if (fileUrl) {
       try {
+        console.log('Downloading file:', fileUrl)
         const { data: fileData } = await supabase.storage
           .from('user-files')
           .download(fileUrl)
@@ -52,6 +56,7 @@ Always be helpful, professional, and efficient. When generating content, provide
           // Convert file to text for analysis (this is a simplified version)
           fileContent = await fileData.text()
           userPrompt += `\n\nFile content to analyze:\n${fileContent.substring(0, 4000)}...`
+          console.log('File content loaded, length:', fileContent.length)
         }
       } catch (error) {
         console.error('Error downloading file:', error)
@@ -59,13 +64,14 @@ Always be helpful, professional, and efficient. When generating content, provide
     }
 
     // Determine if user wants image generation
-    const imageKeywords = ['image', 'picture', 'photo', 'generate image', 'create image', 'visual', 'graphic', 'illustration']
+    const imageKeywords = ['image', 'picture', 'photo', 'generate image', 'create image', 'visual', 'graphic', 'illustration', 'draw', 'design']
     const wantsImage = imageKeywords.some(keyword => message.toLowerCase().includes(keyword))
 
     let response = ''
     let metadata = {}
 
     if (wantsImage) {
+      console.log('Generating image with DALL-E')
       // Generate image using DALL-E
       const imageResponse = await fetch('https://api.openai.com/v1/images/generations', {
         method: 'POST',
@@ -104,10 +110,14 @@ Always be helpful, professional, and efficient. When generating content, provide
             content_data: { imageUrl, prompt: message },
             prompt: message
           })
+        console.log('Image generation completed and saved')
       } else {
+        const errorData = await imageResponse.text()
+        console.error('Image generation failed:', errorData)
         response = "I apologize, but I encountered an issue generating the image. Please try again with a different description."
       }
     } else {
+      console.log('Generating text response with GPT-4')
       // Generate text response using GPT-4
       const chatResponse = await fetch('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
@@ -148,7 +158,10 @@ Always be helpful, professional, and efficient. When generating content, provide
               prompt: message
             })
         }
+        console.log('Text response generated successfully')
       } else {
+        const errorData = await chatResponse.text()
+        console.error('Chat completion failed:', errorData)
         response = "I apologize, but I'm having trouble processing your request right now. Please try again in a moment."
       }
     }
