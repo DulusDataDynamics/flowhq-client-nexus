@@ -15,6 +15,19 @@ interface DashboardStatsProps {
 export const DashboardStats = ({ stats }: DashboardStatsProps) => {
   const { planLimits } = usePlanLimits();
 
+  const getUsagePercentage = () => {
+    if (planLimits.maxClients === -1) return 20; // Show 20% for unlimited
+    return Math.min((stats.totalProjects / planLimits.maxClients) * 100, 100);
+  };
+
+  const getUsageColor = () => {
+    const percentage = getUsagePercentage();
+    if (planLimits.maxClients === -1) return 'bg-green-600';
+    if (percentage >= 80) return 'bg-red-600';
+    if (percentage >= 60) return 'bg-yellow-600';
+    return 'bg-blue-600';
+  };
+
   return (
     <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
       <Card>
@@ -25,8 +38,18 @@ export const DashboardStats = ({ stats }: DashboardStatsProps) => {
         <CardContent>
           <div className="text-2xl font-bold">{stats.totalProjects}</div>
           <p className="text-xs text-muted-foreground">
-            {planLimits.maxClients === -1 ? 'Unlimited' : `of ${planLimits.maxClients} max`}
+            {planLimits.maxClients === -1 ? 'Unlimited clients' : `of ${planLimits.maxClients} clients`}
           </p>
+          {planLimits.maxClients !== -1 && (
+            <div className="mt-2">
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div 
+                  className={`h-2 rounded-full transition-all ${getUsageColor()}`}
+                  style={{ width: `${getUsagePercentage()}%` }}
+                ></div>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
       

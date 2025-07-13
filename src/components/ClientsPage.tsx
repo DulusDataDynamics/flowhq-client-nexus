@@ -1,91 +1,71 @@
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/hooks/useAuth';
-import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { 
-  Plus, 
-  Search, 
-  Mail, 
-  Phone, 
-  Calendar,
-  MoreVertical,
-  User,
-  Edit,
-  Trash2,
-  Eye,
-  Download,
-  Share,
-  MessageCircle,
-  Filter
-} from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
+import { Plus, Trash2, Edit2, Download, FileSpreadsheet, FileText, File } from 'lucide-react';
+import { exportClientData } from '@/utils/exportUtils';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface Client {
   id: string;
   name: string;
-  email: string;
-  phone?: string;
-  company?: string;
-  status: 'active' | 'inactive' | 'pending';
+  description: string;
+  status: string;
   created_at: string;
+  updated_at: string;
 }
 
 export const ClientsPage = () => {
   const [clients, setClients] = useState<Client[]>([]);
-  const [filteredClients, setFilteredClients] = useState<Client[]>([]);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [statusFilter, setStatusFilter] = useState('all');
-  const [loading, setLoading] = useState(true);
-  const [dialogOpen, setDialogOpen] = useState(false);
+  const [selectedClients, setSelectedClients] = useState<string[]>([]);
+  const [isCreating, setIsCreating] = useState(false);
   const [editingClient, setEditingClient] = useState<Client | null>(null);
-  const [newClient, setNewClient] = useState({
+  const [formData, setFormData] = useState({
     name: '',
-    email: '',
-    phone: '',
-    company: '',
-    status: 'active' as const
+    description: '',
+    status: 'active'
   });
+  const [loading, setLoading] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
 
   useEffect(() => {
-    loadClients();
-  }, []);
-
-  useEffect(() => {
-    filterClients();
-  }, [clients, searchTerm, statusFilter]);
+    if (user) {
+      loadClients();
+    }
+  }, [user]);
 
   const loadClients = async () => {
-    if (!user) return;
-
     try {
       const { data, error } = await supabase
         .from('projects')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', user?.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-
-      const clientsData = data.map(project => ({
-        id: project.id,
-        name: project.name,
-        email: project.description || 'No email provided',
-        company: 'N/A',
-        status: project.status as 'active' | 'inactive' | 'pending',
-        created_at: project.created_at
-      }));
-
-      setClients(clientsData);
+      setClients(data || []);
     } catch (error) {
       console.error('Error loading clients:', error);
       toast({
@@ -93,90 +73,65 @@ export const ClientsPage = () => {
         description: "Failed to load clients",
         variant: "destructive"
       });
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!user) return;
+
+    setLoading(true);
+    try {
+      if (editingClient) {
+        const { error } = await supabase
+          .from('projects')
+          .update({
+            name: formData.name,
+            description: formData.description,
+            status: formData.status,
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', editingClient.id);
+
+        if (error) throw error;
+        toast({
+          title: "Success",
+          description: "Client updated successfully"
+        });
+      } else {
+        const { error } = await supabase
+          .from('projects')
+          .insert({
+            name: formData.name,
+            description: formData.description,
+            status: formData.status,
+            user_id: user.id
+          });
+
+        if (error) throw error;
+        toast({
+          title: "Success",
+          description: "Client created successfully"
+        });
+      }
+
+      setFormData({ name: '', description: '', status: 'active' });
+      setIsCreating(false);
+      setEditingClient(null);
+      loadClients();
+    } catch (error) {
+      console.error('Error saving client:', error);
+      toast({
+        title: "Error",
+        description: "Failed to save client",
+        variant: "destructive"
+      });
     } finally {
       setLoading(false);
     }
   };
 
-  const filterClients = () => {
-    let filtered = clients.filter(client =>
-      client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.email.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-
-    if (statusFilter !== 'all') {
-      filtered = filtered.filter(client => client.status === statusFilter);
-    }
-
-    setFilteredClients(filtered);
-  };
-
-  const handleAddClient = async () => {
-    if (!user || !newClient.name) return;
-
-    try {
-      const { error } = await supabase
-        .from('projects')
-        .insert({
-          user_id: user.id,
-          name: newClient.name,
-          description: newClient.email,
-          status: newClient.status
-        });
-
-      if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Client added successfully"
-      });
-
-      setDialogOpen(false);
-      setNewClient({ name: '', email: '', phone: '', company: '', status: 'active' });
-      loadClients();
-    } catch (error) {
-      console.error('Error adding client:', error);
-      toast({
-        title: "Error",
-        description: "Failed to add client",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const handleEditClient = async () => {
-    if (!editingClient) return;
-
-    try {
-      const { error } = await supabase
-        .from('projects')
-        .update({
-          name: editingClient.name,
-          description: editingClient.email,
-          status: editingClient.status
-        })
-        .eq('id', editingClient.id);
-
-      if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Client updated successfully"
-      });
-
-      setEditingClient(null);
-      loadClients();
-    } catch (error) {
-      console.error('Error updating client:', error);
-      toast({
-        title: "Error",
-        description: "Failed to update client",
-        variant: "destructive"
-      });
-    }
-  };
-
-  const handleDeleteClient = async (clientId: string) => {
+  const handleDelete = async (clientId: string) => {
     try {
       const { error } = await supabase
         .from('projects')
@@ -184,12 +139,10 @@ export const ClientsPage = () => {
         .eq('id', clientId);
 
       if (error) throw error;
-
       toast({
         title: "Success",
         description: "Client deleted successfully"
       });
-
       loadClients();
     } catch (error) {
       console.error('Error deleting client:', error);
@@ -201,105 +154,47 @@ export const ClientsPage = () => {
     }
   };
 
-  const handleDownloadClient = (client: Client) => {
-    const data = {
+  const handleEdit = (client: Client) => {
+    setEditingClient(client);
+    setFormData({
       name: client.name,
-      email: client.email,
-      phone: client.phone,
-      company: client.company,
-      status: client.status,
-      created_at: client.created_at
-    };
-
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `client-${client.name.replace(/\s+/g, '-').toLowerCase()}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-
-    toast({
-      title: "Success",
-      description: "Client data downloaded successfully"
+      description: client.description || '',
+      status: client.status || 'active'
     });
+    setIsCreating(true);
   };
 
-  const handleShareClient = (client: Client) => {
-    const shareData = `Client Information:
-Name: ${client.name}
-Email: ${client.email}
-Company: ${client.company}
-Status: ${client.status}`;
-
-    if (navigator.share) {
-      navigator.share({
-        title: `Client: ${client.name}`,
-        text: shareData
-      });
-    } else {
-      navigator.clipboard.writeText(shareData);
+  const handleExport = async (format: 'pdf' | 'word' | 'excel') => {
+    setExporting(true);
+    try {
+      const clientIds = selectedClients.length > 0 ? selectedClients : undefined;
+      await exportClientData(format, clientIds);
       toast({
-        title: "Success",
-        description: "Client info copied to clipboard"
+        title: "Export Complete",
+        description: `Client data exported as ${format.toUpperCase()} successfully`
       });
+    } catch (error) {
+      console.error('Export error:', error);
+      toast({
+        title: "Export Failed",
+        description: "Failed to export client data. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setExporting(false);
     }
   };
 
-  const handleMessage = (client: Client, platform: string) => {
-    const message = `Hello ${client.name}, I hope this message finds you well.`;
-    
-    switch (platform) {
-      case 'email':
-        window.open(`mailto:${client.email}?subject=FlowHQ Update&body=${encodeURIComponent(message)}`);
-        break;
-      case 'whatsapp':
-        window.open(`https://wa.me/?text=${encodeURIComponent(message)}`);
-        break;
-      case 'telegram':
-        window.open(`https://t.me/share/url?text=${encodeURIComponent(message)}`);
-        break;
-    }
+  const toggleClientSelection = (clientId: string) => {
+    setSelectedClients(prev => 
+      prev.includes(clientId) 
+        ? prev.filter(id => id !== clientId)
+        : [...prev, clientId]
+    );
   };
 
-  const handleViewPortal = (client: Client) => {
-    // Create a simple client portal view
-    const portalData = {
-      clientName: client.name,
-      status: client.status,
-      joinedDate: new Date(client.created_at).toLocaleDateString(),
-      email: client.email,
-      company: client.company
-    };
-
-    const portalHtml = `
-      <html>
-        <head><title>Client Portal - ${client.name}</title></head>
-        <body style="font-family: Arial, sans-serif; padding: 20px;">
-          <h1>Welcome to Your Client Portal</h1>
-          <h2>${portalData.clientName}</h2>
-          <p><strong>Status:</strong> ${portalData.status}</p>
-          <p><strong>Email:</strong> ${portalData.email}</p>
-          <p><strong>Company:</strong> ${portalData.company}</p>
-          <p><strong>Joined:</strong> ${portalData.joinedDate}</p>
-        </body>
-      </html>
-    `;
-
-    const blob = new Blob([portalHtml], { type: 'text/html' });
-    const url = URL.createObjectURL(blob);
-    window.open(url, '_blank');
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'active': return 'bg-green-100 text-green-800';
-      case 'pending': return 'bg-yellow-100 text-yellow-800';
-      case 'inactive': return 'bg-gray-100 text-gray-800';
-      default: return 'bg-gray-100 text-gray-800';
-    }
+  const selectAllClients = () => {
+    setSelectedClients(selectedClients.length === clients.length ? [] : clients.map(c => c.id));
   };
 
   return (
@@ -308,248 +203,177 @@ Status: ${client.status}`;
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Clients</h2>
           <p className="text-muted-foreground">
-            Manage your client relationships and projects
+            Manage your client projects and relationships
           </p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              Add Client
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Add New Client</DialogTitle>
-              <DialogDescription>
-                Create a new client profile to manage projects and communications.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
+        <div className="flex gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" disabled={exporting}>
+                <Download className="mr-2 h-4 w-4" />
+                Export {selectedClients.length > 0 && `(${selectedClients.length})`}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent>
+              <DropdownMenuItem onClick={() => handleExport('excel')}>
+                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                Export as Excel
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport('pdf')}>
+                <FileText className="mr-2 h-4 w-4" />
+                Export as PDF
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => handleExport('word')}>
+                <File className="mr-2 h-4 w-4" />
+                Export as Word
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Button onClick={() => setIsCreating(true)}>
+            <Plus className="mr-2 h-4 w-4" />
+            Add Client
+          </Button>
+        </div>
+      </div>
+
+      {isCreating && (
+        <Card>
+          <CardHeader>
+            <CardTitle>{editingClient ? 'Edit Client' : 'Add New Client'}</CardTitle>
+            <CardDescription>
+              {editingClient ? 'Update client information' : 'Create a new client project'}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-4">
               <div>
-                <Label htmlFor="name">Client Name *</Label>
+                <Label htmlFor="name">Client Name</Label>
                 <Input
                   id="name"
-                  value={newClient.name}
-                  onChange={(e) => setNewClient({...newClient, name: e.target.value})}
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                   placeholder="Enter client name"
+                  required
                 />
               </div>
               <div>
-                <Label htmlFor="email">Email</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  value={newClient.email}
-                  onChange={(e) => setNewClient({...newClient, email: e.target.value})}
-                  placeholder="client@example.com"
+                <Label htmlFor="description">Description</Label>
+                <Textarea
+                  id="description"
+                  value={formData.description}
+                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  placeholder="Describe the client project"
+                  rows={3}
                 />
               </div>
               <div>
-                <Label htmlFor="phone">Phone</Label>
-                <Input
-                  id="phone"
-                  value={newClient.phone}
-                  onChange={(e) => setNewClient({...newClient, phone: e.target.value})}
-                  placeholder="+1 (555) 123-4567"
-                />
+                <Label htmlFor="status">Status</Label>
+                <select
+                  id="status"
+                  value={formData.status}
+                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                >
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+                  <option value="completed">Completed</option>
+                </select>
               </div>
-              <div>
-                <Label htmlFor="company">Company</Label>
-                <Input
-                  id="company"
-                  value={newClient.company}
-                  onChange={(e) => setNewClient({...newClient, company: e.target.value})}
-                  placeholder="Company name"
-                />
+              <div className="flex gap-2">
+                <Button type="submit" disabled={loading}>
+                  {loading ? 'Saving...' : (editingClient ? 'Update Client' : 'Create Client')}
+                </Button>
+                <Button 
+                  type="button" 
+                  variant="outline" 
+                  onClick={() => {
+                    setIsCreating(false);
+                    setEditingClient(null);
+                    setFormData({ name: '', description: '', status: 'active' });
+                  }}
+                >
+                  Cancel
+                </Button>
               </div>
-              <Button onClick={handleAddClient} className="w-full">
-                Add Client
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
-      </div>
-
-      <div className="flex items-center space-x-2">
-        <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-          <Input
-            placeholder="Search clients..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="pl-8"
-          />
-        </div>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline">
-              <Filter className="mr-2 h-4 w-4" />
-              Filter
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent>
-            <DropdownMenuItem onClick={() => setStatusFilter('all')}>All</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setStatusFilter('active')}>Active</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setStatusFilter('pending')}>Pending</DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setStatusFilter('inactive')}>Inactive</DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-
-      {loading ? (
-        <div className="flex items-center justify-center py-12">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        </div>
-      ) : filteredClients.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-12">
-            <User className="h-12 w-12 text-gray-400 mb-4" />
-            <h3 className="text-lg font-semibold mb-2">No clients found</h3>
-            <p className="text-gray-500 text-center mb-4">
-              {searchTerm ? "No clients match your search criteria." : "Add your first client to start managing projects."}
-            </p>
-            {!searchTerm && (
-              <Button onClick={() => setDialogOpen(true)}>
-                <Plus className="mr-2 h-4 w-4" />
-                Add Client
-              </Button>
-            )}
+            </form>
           </CardContent>
         </Card>
-      ) : (
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {filteredClients.map((client) => (
-            <Card key={client.id} className="hover:shadow-md transition-shadow">
-              <CardHeader className="pb-3">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle className="text-lg">{client.name}</CardTitle>
-                    <Badge className={`mt-2 ${getStatusColor(client.status)}`}>
-                      {client.status}
-                    </Badge>
-                  </div>
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="ghost" size="sm">
-                        <MoreVertical className="h-4 w-4" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                      <DropdownMenuItem onClick={() => setEditingClient(client)}>
-                        <Edit className="mr-2 h-4 w-4" />
-                        Edit
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleViewPortal(client)}>
-                        <Eye className="mr-2 h-4 w-4" />
-                        View Portal
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleDownloadClient(client)}>
-                        <Download className="mr-2 h-4 w-4" />
-                        Download
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleShareClient(client)}>
-                        <Share className="mr-2 h-4 w-4" />
-                        Share
-                      </DropdownMenuItem>
-                      <DropdownMenuItem 
-                        onClick={() => handleDeleteClient(client.id)}
-                        className="text-red-600"
-                      >
-                        <Trash2 className="mr-2 h-4 w-4" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="flex items-center text-sm text-gray-600">
-                    <Mail className="mr-2 h-4 w-4 flex-shrink-0" />
-                    <span className="truncate">{client.email}</span>
-                  </div>
-                  {client.company && (
-                    <div className="flex items-center text-sm text-gray-600">
-                      <User className="mr-2 h-4 w-4 flex-shrink-0" />
-                      <span className="truncate">{client.company}</span>
-                    </div>
-                  )}
-                  <div className="flex items-center text-sm text-gray-600">
-                    <Calendar className="mr-2 h-4 w-4 flex-shrink-0" />
-                    <span>Added {new Date(client.created_at).toLocaleDateString()}</span>
-                  </div>
-                </div>
-                <div className="flex space-x-2 mt-4">
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild>
-                      <Button variant="outline" size="sm" className="flex-1">
-                        <MessageCircle className="mr-2 h-4 w-4" />
-                        Message
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent>
-                      <DropdownMenuItem onClick={() => handleMessage(client, 'email')}>
-                        <Mail className="mr-2 h-4 w-4" />
-                        Email
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleMessage(client, 'whatsapp')}>
-                        <MessageCircle className="mr-2 h-4 w-4" />
-                        WhatsApp
-                      </DropdownMenuItem>
-                      <DropdownMenuItem onClick={() => handleMessage(client, 'telegram')}>
-                        <MessageCircle className="mr-2 h-4 w-4" />
-                        Telegram
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-                  <Button variant="outline" size="sm" className="flex-1" onClick={() => handleViewPortal(client)}>
-                    View Portal
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
       )}
 
-      {/* Edit Client Dialog */}
-      {editingClient && (
-        <Dialog open={!!editingClient} onOpenChange={() => setEditingClient(null)}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Edit Client</DialogTitle>
-              <DialogDescription>
-                Update client information.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="edit-name">Client Name *</Label>
-                <Input
-                  id="edit-name"
-                  value={editingClient.name}
-                  onChange={(e) => setEditingClient({...editingClient, name: e.target.value})}
-                  placeholder="Enter client name"
-                />
-              </div>
-              <div>
-                <Label htmlFor="edit-email">Email</Label>
-                <Input
-                  id="edit-email"
-                  type="email"
-                  value={editingClient.email}
-                  onChange={(e) => setEditingClient({...editingClient, email: e.target.value})}
-                  placeholder="client@example.com"
-                />
-              </div>
-              <Button onClick={handleEditClient} className="w-full">
-                Update Client
-              </Button>
+      <Card>
+        <CardHeader>
+          <CardTitle>Client List</CardTitle>
+          <CardDescription>
+            All your client projects ({clients.length} total)
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-12">
+                  <Checkbox
+                    checked={selectedClients.length === clients.length && clients.length > 0}
+                    onCheckedChange={selectAllClients}
+                  />
+                </TableHead>
+                <TableHead>Name</TableHead>
+                <TableHead>Description</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Created</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {clients.map((client) => (
+                <TableRow key={client.id}>
+                  <TableCell>
+                    <Checkbox
+                      checked={selectedClients.includes(client.id)}
+                      onCheckedChange={() => toggleClientSelection(client.id)}
+                    />
+                  </TableCell>
+                  <TableCell className="font-medium">{client.name}</TableCell>
+                  <TableCell>{client.description || 'No description'}</TableCell>
+                  <TableCell>
+                    <span className={`px-2 py-1 rounded-full text-xs ${
+                      client.status === 'active' ? 'bg-green-100 text-green-800' :
+                      client.status === 'completed' ? 'bg-blue-100 text-blue-800' :
+                      'bg-gray-100 text-gray-800'
+                    }`}>
+                      {client.status || 'active'}
+                    </span>
+                  </TableCell>
+                  <TableCell>{new Date(client.created_at).toLocaleDateString()}</TableCell>
+                  <TableCell>
+                    <div className="flex gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEdit(client)}
+                      >
+                        <Edit2 className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleDelete(client.id)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </tbody>
+          </Table>
+          {clients.length === 0 && (
+            <div className="text-center py-8 text-muted-foreground">
+              No clients found. Create your first client to get started.
             </div>
-          </DialogContent>
-        </Dialog>
-      )}
+          )}
+        </CardContent>
+      </Card>
     </div>
   );
 };

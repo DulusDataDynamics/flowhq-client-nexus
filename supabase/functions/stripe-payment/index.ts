@@ -15,13 +15,13 @@ serve(async (req) => {
   }
 
   try {
-    const { action, priceId, userId, planName } = await req.json()
+    const { action, planName, userId } = await req.json()
 
     if (!STRIPE_SECRET_KEY) {
       throw new Error('Stripe secret key not configured')
     }
 
-    console.log('Processing Stripe payment:', { action, priceId, userId, planName })
+    console.log('Processing Stripe payment:', { action, planName, userId })
 
     const supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -29,6 +29,36 @@ serve(async (req) => {
     )
 
     if (action === 'create_checkout_session') {
+      // Get user email for Stripe customer
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('email')
+        .eq('id', userId)
+        .single()
+
+      if (!profile?.email) {
+        throw new Error('User email not found')
+      }
+
+      // Define price mappings
+      const priceMapping = {
+        professional: {
+          price: 14900, // R149.00 in cents
+          name: 'Professional Plan',
+          description: '150 clients, 100GB storage, premium features'
+        },
+        agency: {
+          price: 79900, // R799.00 in cents  
+          name: 'Agency Plan',
+          description: 'Unlimited clients, 1TB storage, white-label'
+        }
+      }
+
+      const planConfig = priceMapping[planName as keyof typeof priceMapping]
+      if (!planConfig) {
+        throw new Error('Invalid plan selected')
+      }
+
       // Create Stripe checkout session
       const stripeResponse = await fetch('https://api.stripe.com/v1/checkout/sessions', {
         method: 'POST',
@@ -37,11 +67,16 @@ serve(async (req) => {
           'Content-Type': 'application/x-www-form-urlencoded',
         },
         body: new URLSearchParams({
-          'success_url': `${req.headers.get('origin')}/dashboard?payment=success`,
+          'success_url': `${req.headers.get('origin')}/dashboard?payment=success&plan=${planName}`,
           'cancel_url': `${req.headers.get('origin')}/dashboard?payment=cancelled`,
           'payment_method_types[]': 'card',
           'mode': 'subscription',
-          'line_items[0][price]': priceId,
+          'customer_email': profile.email,
+          'line_items[0][price_data][currency]': 'zar',
+          'line_items[0][price_data][product_data][name]': planConfig.name,
+          'line_items[0][price_data][product_data][description]': planConfig.description,
+          'line_items[0][price_data][unit_amount]': planConfig.price.toString(),
+          'line_items[0][price_data][recurring][interval]': 'month',
           'line_items[0][quantity]': '1',
           'client_reference_id': userId,
           'metadata[plan_name]': planName,

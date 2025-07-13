@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
 import { usePlanLimits } from '@/hooks/usePlanLimits';
 import { useSubscription } from '@/hooks/useSubscription';
+import { useToast } from '@/hooks/use-toast';
 import { Zap } from 'lucide-react';
 
 const DashboardOverview = ({ onNavigate }: { onNavigate: (page: string) => void }) => {
@@ -25,12 +26,38 @@ const DashboardOverview = ({ onNavigate }: { onNavigate: (page: string) => void 
     generatedContent: 0
   });
   const { user } = useAuth();
-  const { planLimits } = usePlanLimits();
+  const { planLimits, refreshPlan } = usePlanLimits();
   const { createCheckoutSession, startFreeTrial, loading } = useSubscription();
+  const { toast } = useToast();
 
   useEffect(() => {
     loadDashboardStats();
+    handlePaymentCallback();
   }, [user]);
+
+  const handlePaymentCallback = () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const paymentStatus = urlParams.get('payment');
+    const plan = urlParams.get('plan');
+
+    if (paymentStatus === 'success' && plan) {
+      toast({
+        title: "Payment Successful!",
+        description: `Welcome to the ${plan} plan! Your account has been upgraded.`,
+      });
+      // Refresh plan limits
+      refreshPlan();
+      // Clean up URL
+      window.history.replaceState({}, document.title, window.location.pathname);
+    } else if (paymentStatus === 'cancelled') {
+      toast({
+        title: "Payment Cancelled",
+        description: "Your subscription was not processed. You can try again anytime.",
+        variant: "destructive"
+      });
+      window.history.replaceState({}, document.title, window.location.pathname);
+    }
+  };
 
   const loadDashboardStats = async () => {
     if (!user) return;
@@ -54,6 +81,15 @@ const DashboardOverview = ({ onNavigate }: { onNavigate: (page: string) => void 
     }
   };
 
+  const getUsagePercentage = () => {
+    if (planLimits.maxClients === -1) return 20;
+    return Math.min((stats.totalProjects / planLimits.maxClients) * 100, 100);
+  };
+
+  const isNearLimit = () => {
+    return planLimits.maxClients !== -1 && (stats.totalProjects / planLimits.maxClients) >= 0.8;
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -63,10 +99,12 @@ const DashboardOverview = ({ onNavigate }: { onNavigate: (page: string) => void 
             Welcome back! Here's what's happening with your FlowHQ workspace.
           </p>
         </div>
-        <Button onClick={() => createCheckoutSession('professional')} disabled={loading}>
-          <Zap className="mr-2 h-4 w-4" />
-          Upgrade Plan
-        </Button>
+        {(planLimits.plan === 'free' || planLimits.plan === 'trial') && (
+          <Button onClick={() => createCheckoutSession('professional')} disabled={loading}>
+            <Zap className="mr-2 h-4 w-4" />
+            Upgrade Plan
+          </Button>
+        )}
       </div>
 
       <DashboardStats stats={stats} />
@@ -88,16 +126,21 @@ const DashboardOverview = ({ onNavigate }: { onNavigate: (page: string) => void 
               </div>
               <div className="w-full bg-gray-200 rounded-full h-2">
                 <div 
-                  className={`h-2 rounded-full ${
+                  className={`h-2 rounded-full transition-all ${
                     planLimits.maxClients === -1 ? 'bg-green-600' : 
-                    (stats.totalProjects / planLimits.maxClients) >= 0.8 ? 'bg-red-600' : 'bg-blue-600'
+                    isNearLimit() ? 'bg-red-600' : 'bg-blue-600'
                   }`}
                   style={{ 
                     width: planLimits.maxClients === -1 ? '20%' : 
-                           `${Math.min((stats.totalProjects / planLimits.maxClients) * 100, 100)}%` 
+                           `${getUsagePercentage()}%` 
                   }}
                 ></div>
               </div>
+              {isNearLimit() && (
+                <p className="text-sm text-red-600 mt-1">
+                  You're approaching your client limit. Consider upgrading your plan.
+                </p>
+              )}
             </div>
             <div>
               <div className="flex justify-between text-sm mb-1">
@@ -115,7 +158,7 @@ const DashboardOverview = ({ onNavigate }: { onNavigate: (page: string) => void 
                 onClick={() => startFreeTrial()}
                 disabled={loading}
               >
-                Start Free Trial
+                Start Free Trial (30 Clients)
               </Button>
             )}
             {(planLimits.plan === 'trial' || planLimits.plan === 'free') && (
@@ -125,7 +168,7 @@ const DashboardOverview = ({ onNavigate }: { onNavigate: (page: string) => void 
                 onClick={() => createCheckoutSession('professional')}
                 disabled={loading}
               >
-                Upgrade Plan
+                Upgrade to Professional (150 Clients)
               </Button>
             )}
           </div>

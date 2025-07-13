@@ -22,40 +22,35 @@ export const useSubscription = () => {
     setLoading(true);
 
     try {
-      // Define price IDs for each plan (you'll need to create these in Stripe)
-      const priceIds = {
-        professional: 'price_professional_r149', // Replace with actual Stripe price ID
-        agency: 'price_agency_r799' // Replace with actual Stripe price ID
-      };
-
-      const priceId = priceIds[planName.toLowerCase() as keyof typeof priceIds];
-
-      if (!priceId) {
-        throw new Error('Invalid plan selected');
-      }
-
+      console.log('Creating checkout session for plan:', planName);
+      
       const { data, error } = await supabase.functions.invoke('stripe-payment', {
         body: {
           action: 'create_checkout_session',
-          priceId,
-          userId: user.id,
-          planName
+          planName: planName.toLowerCase(),
+          userId: user.id
         }
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase function error:', error);
+        throw error;
+      }
 
-      if (data.url) {
-        window.location.href = data.url;
+      console.log('Checkout session response:', data);
+
+      if (data?.url) {
+        // Open Stripe checkout in a new tab
+        window.open(data.url, '_blank');
       } else {
-        throw new Error('No checkout URL received');
+        throw new Error('No checkout URL received from server');
       }
 
     } catch (error) {
       console.error('Error creating checkout session:', error);
       toast({
         title: "Payment Error",
-        description: "Failed to start payment process. Please try again.",
+        description: error.message || "Failed to start payment process. Please try again.",
         variant: "destructive"
       });
     } finally {
@@ -64,9 +59,20 @@ export const useSubscription = () => {
   };
 
   const startFreeTrial = async () => {
-    if (!user) return;
+    if (!user) {
+      toast({
+        title: "Authentication required",
+        description: "Please sign in to start your free trial",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    setLoading(true);
 
     try {
+      console.log('Starting free trial for user:', user.id);
+      
       const { error } = await supabase
         .from('profiles')
         .update({ 
@@ -75,23 +81,30 @@ export const useSubscription = () => {
         })
         .eq('id', user.id);
 
-      if (error) throw error;
+      if (error) {
+        console.error('Database error:', error);
+        throw error;
+      }
 
       toast({
         title: "Free trial started!",
-        description: "You now have 3 days of full access to FlowHQ",
+        description: "You now have access to 30 clients and premium features for your trial period.",
       });
 
       // Refresh the page to update the UI
-      window.location.reload();
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
 
     } catch (error) {
       console.error('Error starting free trial:', error);
       toast({
         title: "Error",
-        description: "Failed to start free trial. Please try again.",
+        description: error.message || "Failed to start free trial. Please try again.",
         variant: "destructive"
       });
+    } finally {
+      setLoading(false);
     }
   };
 
