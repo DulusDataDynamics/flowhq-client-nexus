@@ -1,7 +1,7 @@
 
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/contexts/AuthContext';
 import { usePlanLimits } from '@/hooks/usePlanLimits';
 import { useSubscription } from '@/hooks/useSubscription';
 import { 
