@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -17,7 +18,14 @@ import {
   Phone, 
   Calendar,
   MoreVertical,
-  User
+  User,
+  Edit,
+  Trash2,
+  Eye,
+  Download,
+  Share,
+  MessageCircle,
+  Filter
 } from 'lucide-react';
 
 interface Client {
@@ -32,9 +40,12 @@ interface Client {
 
 export const ClientsPage = () => {
   const [clients, setClients] = useState<Client[]>([]);
+  const [filteredClients, setFilteredClients] = useState<Client[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('all');
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingClient, setEditingClient] = useState<Client | null>(null);
   const [newClient, setNewClient] = useState({
     name: '',
     email: '',
@@ -49,6 +60,10 @@ export const ClientsPage = () => {
     loadClients();
   }, []);
 
+  useEffect(() => {
+    filterClients();
+  }, [clients, searchTerm, statusFilter]);
+
   const loadClients = async () => {
     if (!user) return;
 
@@ -61,7 +76,6 @@ export const ClientsPage = () => {
 
       if (error) throw error;
 
-      // Transform projects to clients for now (you can create a separate clients table later)
       const clientsData = data.map(project => ({
         id: project.id,
         name: project.name,
@@ -82,6 +96,19 @@ export const ClientsPage = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const filterClients = () => {
+    let filtered = clients.filter(client =>
+      client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      client.email.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(client => client.status === statusFilter);
+    }
+
+    setFilteredClients(filtered);
   };
 
   const handleAddClient = async () => {
@@ -117,10 +144,154 @@ export const ClientsPage = () => {
     }
   };
 
-  const filteredClients = clients.filter(client =>
-    client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    client.email.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const handleEditClient = async () => {
+    if (!editingClient) return;
+
+    try {
+      const { error } = await supabase
+        .from('projects')
+        .update({
+          name: editingClient.name,
+          description: editingClient.email,
+          status: editingClient.status
+        })
+        .eq('id', editingClient.id);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Client updated successfully"
+      });
+
+      setEditingClient(null);
+      loadClients();
+    } catch (error) {
+      console.error('Error updating client:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update client",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDeleteClient = async (clientId: string) => {
+    try {
+      const { error } = await supabase
+        .from('projects')
+        .delete()
+        .eq('id', clientId);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Client deleted successfully"
+      });
+
+      loadClients();
+    } catch (error) {
+      console.error('Error deleting client:', error);
+      toast({
+        title: "Error",
+        description: "Failed to delete client",
+        variant: "destructive"
+      });
+    }
+  };
+
+  const handleDownloadClient = (client: Client) => {
+    const data = {
+      name: client.name,
+      email: client.email,
+      phone: client.phone,
+      company: client.company,
+      status: client.status,
+      created_at: client.created_at
+    };
+
+    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `client-${client.name.replace(/\s+/g, '-').toLowerCase()}.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    toast({
+      title: "Success",
+      description: "Client data downloaded successfully"
+    });
+  };
+
+  const handleShareClient = (client: Client) => {
+    const shareData = `Client Information:
+Name: ${client.name}
+Email: ${client.email}
+Company: ${client.company}
+Status: ${client.status}`;
+
+    if (navigator.share) {
+      navigator.share({
+        title: `Client: ${client.name}`,
+        text: shareData
+      });
+    } else {
+      navigator.clipboard.writeText(shareData);
+      toast({
+        title: "Success",
+        description: "Client info copied to clipboard"
+      });
+    }
+  };
+
+  const handleMessage = (client: Client, platform: string) => {
+    const message = `Hello ${client.name}, I hope this message finds you well.`;
+    
+    switch (platform) {
+      case 'email':
+        window.open(`mailto:${client.email}?subject=FlowHQ Update&body=${encodeURIComponent(message)}`);
+        break;
+      case 'whatsapp':
+        window.open(`https://wa.me/?text=${encodeURIComponent(message)}`);
+        break;
+      case 'telegram':
+        window.open(`https://t.me/share/url?text=${encodeURIComponent(message)}`);
+        break;
+    }
+  };
+
+  const handleViewPortal = (client: Client) => {
+    // Create a simple client portal view
+    const portalData = {
+      clientName: client.name,
+      status: client.status,
+      joinedDate: new Date(client.created_at).toLocaleDateString(),
+      email: client.email,
+      company: client.company
+    };
+
+    const portalHtml = `
+      <html>
+        <head><title>Client Portal - ${client.name}</title></head>
+        <body style="font-family: Arial, sans-serif; padding: 20px;">
+          <h1>Welcome to Your Client Portal</h1>
+          <h2>${portalData.clientName}</h2>
+          <p><strong>Status:</strong> ${portalData.status}</p>
+          <p><strong>Email:</strong> ${portalData.email}</p>
+          <p><strong>Company:</strong> ${portalData.company}</p>
+          <p><strong>Joined:</strong> ${portalData.joinedDate}</p>
+        </body>
+      </html>
+    `;
+
+    const blob = new Blob([portalHtml], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+  };
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -210,6 +381,20 @@ export const ClientsPage = () => {
             className="pl-8"
           />
         </div>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline">
+              <Filter className="mr-2 h-4 w-4" />
+              Filter
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent>
+            <DropdownMenuItem onClick={() => setStatusFilter('all')}>All</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setStatusFilter('active')}>Active</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setStatusFilter('pending')}>Pending</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setStatusFilter('inactive')}>Inactive</DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       {loading ? (
@@ -244,9 +429,38 @@ export const ClientsPage = () => {
                       {client.status}
                     </Badge>
                   </div>
-                  <Button variant="ghost" size="sm">
-                    <MoreVertical className="h-4 w-4" />
-                  </Button>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="sm">
+                        <MoreVertical className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      <DropdownMenuItem onClick={() => setEditingClient(client)}>
+                        <Edit className="mr-2 h-4 w-4" />
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleViewPortal(client)}>
+                        <Eye className="mr-2 h-4 w-4" />
+                        View Portal
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleDownloadClient(client)}>
+                        <Download className="mr-2 h-4 w-4" />
+                        Download
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleShareClient(client)}>
+                        <Share className="mr-2 h-4 w-4" />
+                        Share
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        onClick={() => handleDeleteClient(client.id)}
+                        className="text-red-600"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
               </CardHeader>
               <CardContent>
@@ -267,10 +481,29 @@ export const ClientsPage = () => {
                   </div>
                 </div>
                 <div className="flex space-x-2 mt-4">
-                  <Button variant="outline" size="sm" className="flex-1">
-                    Message
-                  </Button>
-                  <Button variant="outline" size="sm" className="flex-1">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="sm" className="flex-1">
+                        <MessageCircle className="mr-2 h-4 w-4" />
+                        Message
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent>
+                      <DropdownMenuItem onClick={() => handleMessage(client, 'email')}>
+                        <Mail className="mr-2 h-4 w-4" />
+                        Email
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleMessage(client, 'whatsapp')}>
+                        <MessageCircle className="mr-2 h-4 w-4" />
+                        WhatsApp
+                      </DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => handleMessage(client, 'telegram')}>
+                        <MessageCircle className="mr-2 h-4 w-4" />
+                        Telegram
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <Button variant="outline" size="sm" className="flex-1" onClick={() => handleViewPortal(client)}>
                     View Portal
                   </Button>
                 </div>
@@ -278,6 +511,44 @@ export const ClientsPage = () => {
             </Card>
           ))}
         </div>
+      )}
+
+      {/* Edit Client Dialog */}
+      {editingClient && (
+        <Dialog open={!!editingClient} onOpenChange={() => setEditingClient(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit Client</DialogTitle>
+              <DialogDescription>
+                Update client information.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div>
+                <Label htmlFor="edit-name">Client Name *</Label>
+                <Input
+                  id="edit-name"
+                  value={editingClient.name}
+                  onChange={(e) => setEditingClient({...editingClient, name: e.target.value})}
+                  placeholder="Enter client name"
+                />
+              </div>
+              <div>
+                <Label htmlFor="edit-email">Email</Label>
+                <Input
+                  id="edit-email"
+                  type="email"
+                  value={editingClient.email}
+                  onChange={(e) => setEditingClient({...editingClient, email: e.target.value})}
+                  placeholder="client@example.com"
+                />
+              </div>
+              <Button onClick={handleEditClient} className="w-full">
+                Update Client
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
       )}
     </div>
   );

@@ -9,6 +9,8 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Calendar, CalendarProvider } from '@/components/ui/calendar';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -20,9 +22,13 @@ import {
   Send,
   Eye,
   DollarSign,
-  Calendar,
+  Calendar as CalendarIcon,
   AlertCircle,
-  CheckCircle
+  CheckCircle,
+  Calculator,
+  Bot,
+  Share,
+  MessageCircle
 } from 'lucide-react';
 
 interface Invoice {
@@ -33,14 +39,21 @@ interface Invoice {
   status: 'draft' | 'sent' | 'paid' | 'overdue';
   due_date: string;
   created_at: string;
+  description?: string;
 }
 
 export const InvoicesPage = () => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [filteredInvoices, setFilteredInvoices] = useState<Invoice[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState('all');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const [calculatorOpen, setCalculatorOpen] = useState(false);
+  const [calculatorMode, setCalculatorMode] = useState<'manual' | 'ai'>('manual');
+  const [calculatorInput, setCalculatorInput] = useState('');
+  const [calculatorResult, setCalculatorResult] = useState('');
   const [newInvoice, setNewInvoice] = useState({
     client_name: '',
     amount: '',
@@ -50,40 +63,37 @@ export const InvoicesPage = () => {
   const { user } = useAuth();
   const { toast } = useToast();
 
-  // Mock data for demo - in real app, this would come from database
   useEffect(() => {
-    // Simulate loading invoices
-    const mockInvoices: Invoice[] = [
-      {
-        id: '1',
-        invoice_number: 'INV-001',
-        client_name: 'KAMAL',
-        amount: 2500.00,
-        status: 'sent',
-        due_date: '2025-01-20',
-        created_at: '2025-01-05'
-      },
-      {
-        id: '2',
-        invoice_number: 'INV-002',
-        client_name: 'Client B',
-        amount: 1800.00,
-        status: 'draft',
-        due_date: '2025-01-25',
-        created_at: '2025-01-06'
-      }
-    ];
-    
-    setTimeout(() => {
-      setInvoices(mockInvoices);
-      setLoading(false);
-    }, 1000);
-  }, []);
+    filterInvoices();
+  }, [invoices, searchTerm, activeTab]);
+
+  const showToast = (title: string, description: string, variant?: "default" | "destructive") => {
+    toast({
+      title,
+      description,
+      variant,
+      duration: 5000
+    });
+  };
+
+  const filterInvoices = () => {
+    let filtered = invoices.filter(invoice =>
+      invoice.client_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      invoice.invoice_number.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+
+    if (activeTab !== 'all') {
+      filtered = filtered.filter(invoice => invoice.status === activeTab);
+    }
+
+    setFilteredInvoices(filtered);
+  };
 
   const handleCreateInvoice = async () => {
     if (!user || !newInvoice.client_name || !newInvoice.amount) return;
 
     try {
+      setLoading(true);
       const invoice: Invoice = {
         id: Date.now().toString(),
         invoice_number: `INV-${String(invoices.length + 1).padStart(3, '0')}`,
@@ -91,25 +101,120 @@ export const InvoicesPage = () => {
         amount: parseFloat(newInvoice.amount),
         status: 'draft',
         due_date: newInvoice.due_date,
-        created_at: new Date().toISOString()
+        created_at: new Date().toISOString(),
+        description: newInvoice.description
       };
 
       setInvoices([invoice, ...invoices]);
 
-      toast({
-        title: "Success",
-        description: "Invoice created successfully"
-      });
-
+      showToast("Success", "Invoice created successfully");
       setDialogOpen(false);
       setNewInvoice({ client_name: '', amount: '', due_date: '', description: '' });
     } catch (error) {
       console.error('Error creating invoice:', error);
-      toast({
-        title: "Error",
-        description: "Failed to create invoice",
-        variant: "destructive"
+      showToast("Error", "Failed to create invoice", "destructive");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDownloadInvoice = (invoice: Invoice) => {
+    const invoiceData = {
+      invoice_number: invoice.invoice_number,
+      client_name: invoice.client_name,
+      amount: invoice.amount,
+      status: invoice.status,
+      due_date: invoice.due_date,
+      created_at: invoice.created_at,
+      description: invoice.description
+    };
+
+    const invoiceHtml = `
+      <html>
+        <head><title>Invoice ${invoice.invoice_number}</title></head>
+        <body style="font-family: Arial, sans-serif; padding: 20px;">
+          <h1>INVOICE</h1>
+          <h2>${invoice.invoice_number}</h2>
+          <p><strong>Client:</strong> ${invoice.client_name}</p>
+          <p><strong>Amount:</strong> R${invoice.amount.toFixed(2)}</p>
+          <p><strong>Status:</strong> ${invoice.status}</p>
+          <p><strong>Due Date:</strong> ${new Date(invoice.due_date).toLocaleDateString()}</p>
+          <p><strong>Description:</strong> ${invoice.description || 'N/A'}</p>
+          <p><strong>Created:</strong> ${new Date(invoice.created_at).toLocaleDateString()}</p>
+        </body>
+      </html>
+    `;
+
+    const blob = new Blob([invoiceHtml], { type: 'text/html' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `invoice-${invoice.invoice_number}.html`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    showToast("Success", "Invoice downloaded successfully");
+  };
+
+  const handleShareInvoice = (invoice: Invoice) => {
+    const shareData = `Invoice ${invoice.invoice_number}
+Client: ${invoice.client_name}
+Amount: R${invoice.amount.toFixed(2)}
+Due: ${new Date(invoice.due_date).toLocaleDateString()}`;
+
+    if (navigator.share) {
+      navigator.share({
+        title: `Invoice ${invoice.invoice_number}`,
+        text: shareData
       });
+    } else {
+      navigator.clipboard.writeText(shareData);
+      showToast("Success", "Invoice details copied to clipboard");
+    }
+  };
+
+  const handleMessageClient = (invoice: Invoice, platform: string) => {
+    const message = `Hello ${invoice.client_name}, regarding invoice ${invoice.invoice_number} for R${invoice.amount.toFixed(2)}.`;
+    
+    switch (platform) {
+      case 'email':
+        window.open(`mailto:?subject=Invoice ${invoice.invoice_number}&body=${encodeURIComponent(message)}`);
+        break;
+      case 'whatsapp':
+        window.open(`https://wa.me/?text=${encodeURIComponent(message)}`);
+        break;
+      case 'telegram':
+        window.open(`https://t.me/share/url?text=${encodeURIComponent(message)}`);
+        break;
+    }
+  };
+
+  const handleCalculation = async () => {
+    if (calculatorMode === 'manual') {
+      try {
+        // Simple calculator evaluation
+        const result = eval(calculatorInput.replace(/[^0-9+\-*/().]/g, ''));
+        setCalculatorResult(result.toString());
+      } catch (error) {
+        setCalculatorResult('Error');
+      }
+    } else {
+      // AI Calculator
+      try {
+        const { data, error } = await supabase.functions.invoke('ai-assistant', {
+          body: {
+            message: `Calculate this: ${calculatorInput}. Provide only the numerical result.`,
+            userId: user?.id
+          }
+        });
+
+        if (error) throw error;
+        setCalculatorResult(data.response);
+      } catch (error) {
+        setCalculatorResult('AI calculation failed');
+      }
     }
   };
 
@@ -127,17 +232,9 @@ export const InvoicesPage = () => {
     switch (status) {
       case 'paid': return <CheckCircle className="h-4 w-4" />;
       case 'overdue': return <AlertCircle className="h-4 w-4" />;
-      default: return <Calendar className="h-4 w-4" />;
+      default: return <CalendarIcon className="h-4 w-4" />;
     }
   };
-
-  const filteredInvoices = invoices.filter(invoice => {
-    const matchesSearch = invoice.client_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         invoice.invoice_number.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    if (activeTab === 'all') return matchesSearch;
-    return matchesSearch && invoice.status === activeTab;
-  });
 
   const totalOutstanding = invoices
     .filter(inv => inv.status !== 'paid')
@@ -162,65 +259,75 @@ export const InvoicesPage = () => {
             Manage billing and payments with your clients
           </p>
         </div>
-        <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-          <DialogTrigger asChild>
-            <Button>
-              <Plus className="mr-2 h-4 w-4" />
-              New Invoice
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Create New Invoice</DialogTitle>
-              <DialogDescription>
-                Create a new invoice for your client.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="client">Client Name *</Label>
-                <Input
-                  id="client"
-                  value={newInvoice.client_name}
-                  onChange={(e) => setNewInvoice({...newInvoice, client_name: e.target.value})}
-                  placeholder="Enter client name"
-                />
-              </div>
-              <div>
-                <Label htmlFor="amount">Amount *</Label>
-                <Input
-                  id="amount"
-                  type="number"
-                  step="0.01"
-                  value={newInvoice.amount}
-                  onChange={(e) => setNewInvoice({...newInvoice, amount: e.target.value})}
-                  placeholder="0.00"
-                />
-              </div>
-              <div>
-                <Label htmlFor="due_date">Due Date</Label>
-                <Input
-                  id="due_date"
-                  type="date"
-                  value={newInvoice.due_date}
-                  onChange={(e) => setNewInvoice({...newInvoice, due_date: e.target.value})}
-                />
-              </div>
-              <div>
-                <Label htmlFor="description">Description</Label>
-                <Textarea
-                  id="description"
-                  value={newInvoice.description}
-                  onChange={(e) => setNewInvoice({...newInvoice, description: e.target.value})}
-                  placeholder="Invoice description or notes"
-                />
-              </div>
-              <Button onClick={handleCreateInvoice} className="w-full">
-                Create Invoice
+        <div className="flex space-x-2">
+          <Button variant="outline" onClick={() => setCalendarOpen(true)}>
+            <CalendarIcon className="mr-2 h-4 w-4" />
+            Calendar
+          </Button>
+          <Button variant="outline" onClick={() => setCalculatorOpen(true)}>
+            <Calculator className="mr-2 h-4 w-4" />
+            Calculator
+          </Button>
+          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="mr-2 h-4 w-4" />
+                New Invoice
               </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create New Invoice</DialogTitle>
+                <DialogDescription>
+                  Create a new invoice for your client.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="client">Client Name *</Label>
+                  <Input
+                    id="client"
+                    value={newInvoice.client_name}
+                    onChange={(e) => setNewInvoice({...newInvoice, client_name: e.target.value})}
+                    placeholder="Enter client name"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="amount">Amount *</Label>
+                  <Input
+                    id="amount"
+                    type="number"
+                    step="0.01"
+                    value={newInvoice.amount}
+                    onChange={(e) => setNewInvoice({...newInvoice, amount: e.target.value})}
+                    placeholder="0.00"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="due_date">Due Date</Label>
+                  <Input
+                    id="due_date"
+                    type="date"
+                    value={newInvoice.due_date}
+                    onChange={(e) => setNewInvoice({...newInvoice, due_date: e.target.value})}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="description">Description</Label>
+                  <Textarea
+                    id="description"
+                    value={newInvoice.description}
+                    onChange={(e) => setNewInvoice({...newInvoice, description: e.target.value})}
+                    placeholder="Invoice description or notes"
+                  />
+                </div>
+                <Button onClick={handleCreateInvoice} className="w-full" disabled={loading}>
+                  Create Invoice
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
       </div>
 
       {/* Stats Cards */}
@@ -261,7 +368,7 @@ export const InvoicesPage = () => {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Draft Invoices</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <CalendarIcon className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{draftCount}</div>
@@ -295,11 +402,7 @@ export const InvoicesPage = () => {
         </TabsList>
 
         <TabsContent value={activeTab} className="space-y-4">
-          {loading ? (
-            <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-            </div>
-          ) : filteredInvoices.length === 0 ? (
+          {filteredInvoices.length === 0 ? (
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12">
                 <DollarSign className="h-12 w-12 text-gray-400 mb-4" />
@@ -340,10 +443,36 @@ export const InvoicesPage = () => {
                           <Button variant="ghost" size="sm">
                             <Eye className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm">
-                            <Send className="h-4 w-4" />
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="ghost" size="sm">
+                                <MessageCircle className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent>
+                              <DropdownMenuItem onClick={() => handleMessageClient(invoice, 'email')}>
+                                Email
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleMessageClient(invoice, 'whatsapp')}>
+                                WhatsApp
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleMessageClient(invoice, 'telegram')}>
+                                Telegram
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleShareInvoice(invoice)}
+                          >
+                            <Share className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="sm">
+                          <Button 
+                            variant="ghost" 
+                            size="sm"
+                            onClick={() => handleDownloadInvoice(invoice)}
+                          >
                             <Download className="h-4 w-4" />
                           </Button>
                         </div>
@@ -356,6 +485,68 @@ export const InvoicesPage = () => {
           )}
         </TabsContent>
       </Tabs>
+
+      {/* Calculator Dialog */}
+      <Dialog open={calculatorOpen} onOpenChange={setCalculatorOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Calculator</DialogTitle>
+            <DialogDescription>
+              Choose between manual calculation or AI-powered calculations
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="flex space-x-2">
+              <Button 
+                variant={calculatorMode === 'manual' ? 'default' : 'outline'}
+                onClick={() => setCalculatorMode('manual')}
+                className="flex-1"
+              >
+                <Calculator className="mr-2 h-4 w-4" />
+                Manual
+              </Button>
+              <Button 
+                variant={calculatorMode === 'ai' ? 'default' : 'outline'}
+                onClick={() => setCalculatorMode('ai')}
+                className="flex-1"
+              >
+                <Bot className="mr-2 h-4 w-4" />
+                AI Calculator
+              </Button>
+            </div>
+            <div>
+              <Input
+                value={calculatorInput}
+                onChange={(e) => setCalculatorInput(e.target.value)}
+                placeholder={calculatorMode === 'manual' ? 'Enter calculation (e.g., 2+2*3)' : 'Ask AI to calculate anything'}
+              />
+            </div>
+            <Button onClick={handleCalculation} className="w-full">
+              Calculate
+            </Button>
+            {calculatorResult && (
+              <div className="p-4 bg-gray-100 rounded">
+                <p className="font-medium">Result: {calculatorResult}</p>
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Calendar Dialog */}
+      <Dialog open={calendarOpen} onOpenChange={setCalendarOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Calendar</DialogTitle>
+            <DialogDescription>
+              View and manage your invoice dates
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-center">
+            <Calendar />
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

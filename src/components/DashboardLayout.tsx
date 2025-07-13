@@ -2,6 +2,8 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
+import { usePlanLimits } from '@/hooks/usePlanLimits';
+import { useSubscription } from '@/hooks/useSubscription';
 import { 
   LayoutDashboard, 
   Users,
@@ -11,7 +13,8 @@ import {
   Settings, 
   LogOut,
   Menu,
-  X
+  X,
+  Zap
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -24,6 +27,8 @@ interface DashboardLayoutProps {
 export const DashboardLayout = ({ children, currentPage, onPageChange }: DashboardLayoutProps) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const { signOut, user } = useAuth();
+  const { planLimits } = usePlanLimits();
+  const { createCheckoutSession, loading } = useSubscription();
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -36,6 +41,14 @@ export const DashboardLayout = ({ children, currentPage, onPageChange }: Dashboa
 
   const handleSignOut = async () => {
     await signOut();
+  };
+
+  const handleUpgrade = async (planName: string) => {
+    await createCheckoutSession(planName);
+  };
+
+  const getStoragePercentage = () => {
+    return planLimits.maxStorage > 0 ? (0 / (planLimits.maxStorage * 1024)) * 100 : 0;
   };
 
   return (
@@ -72,15 +85,30 @@ export const DashboardLayout = ({ children, currentPage, onPageChange }: Dashboa
           <div className="p-4">
             <div className="bg-blue-50 rounded-lg p-3 mb-4">
               <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-medium text-blue-700">Free Plan</span>
-                <span className="text-xs text-blue-600">1 of 1 clients used</span>
+                <span className="text-xs font-medium text-blue-700">
+                  {planLimits.plan.charAt(0).toUpperCase() + planLimits.plan.slice(1)} Plan
+                </span>
+                <span className="text-xs text-blue-600">
+                  {planLimits.maxClients === -1 ? 'Unlimited' : `0 of ${planLimits.maxClients} clients`}
+                </span>
               </div>
               <div className="w-full bg-blue-200 rounded-full h-1.5">
-                <div className="bg-blue-600 h-1.5 rounded-full" style={{ width: '100%' }}></div>
+                <div 
+                  className="bg-blue-600 h-1.5 rounded-full" 
+                  style={{ width: planLimits.maxClients === -1 ? '20%' : '0%' }}
+                ></div>
               </div>
-              <Button size="sm" className="w-full mt-2 text-xs">
-                Upgrade
-              </Button>
+              {planLimits.plan === 'free' && (
+                <Button 
+                  size="sm" 
+                  className="w-full mt-2 text-xs"
+                  onClick={() => handleUpgrade('professional')}
+                  disabled={loading}
+                >
+                  <Zap className="mr-1 h-3 w-3" />
+                  Upgrade
+                </Button>
+              )}
             </div>
           </div>
           

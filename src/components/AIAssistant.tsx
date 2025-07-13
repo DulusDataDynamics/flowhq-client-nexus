@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -31,6 +31,7 @@ export const AIAssistant = () => {
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
   const [file, setFile] = useState<File | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -47,6 +48,16 @@ export const AIAssistant = () => {
   useEffect(() => {
     loadConversationHistory();
   }, []);
+
+  // Auto-dismiss toast messages after 5 seconds
+  const showToast = useCallback((title: string, description: string, variant?: "default" | "destructive") => {
+    toast({
+      title,
+      description,
+      variant,
+      duration: 5000
+    });
+  }, [toast]);
 
   const loadConversationHistory = async () => {
     if (!user) return;
@@ -83,14 +94,31 @@ export const AIAssistant = () => {
     setMessages(formattedMessages);
   };
 
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(true);
+  }, []);
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+  }, []);
+
+  const handleDrop = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragOver(false);
+    const droppedFile = e.dataTransfer.files[0];
+    if (droppedFile) {
+      setFile(droppedFile);
+      showToast("File selected", `${droppedFile.name} ready for analysis`);
+    }
+  }, [showToast]);
+
   const handleFileUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFile = event.target.files?.[0];
     if (selectedFile) {
       setFile(selectedFile);
-      toast({
-        title: "File selected",
-        description: `${selectedFile.name} ready for upload`
-      });
+      showToast("File selected", `${selectedFile.name} ready for analysis`);
     }
   };
 
@@ -109,7 +137,6 @@ export const AIAssistant = () => {
       return null;
     }
 
-    // Save file info to database
     await supabase
       .from('files')
       .insert({
@@ -147,7 +174,6 @@ export const AIAssistant = () => {
         }
       }
 
-      // Call AI assistant function
       const { data, error } = await supabase.functions.invoke('ai-assistant', {
         body: {
           message: input,
@@ -168,7 +194,6 @@ export const AIAssistant = () => {
 
       setMessages(prev => [...prev, botMessage]);
 
-      // Save conversation to database
       await supabase
         .from('ai_conversations')
         .insert({
@@ -181,11 +206,7 @@ export const AIAssistant = () => {
 
     } catch (error) {
       console.error('Error sending message:', error);
-      toast({
-        title: "Error",
-        description: "Failed to send message. Please try again.",
-        variant: "destructive"
-      });
+      showToast("Error", "Failed to send message. Please try again.", "destructive");
     } finally {
       setLoading(false);
       setInput('');
@@ -205,20 +226,35 @@ export const AIAssistant = () => {
         <CardHeader>
           <CardTitle className="flex items-center">
             <Bot className="mr-2 h-5 w-5" />
-            AI Assistant - Sparky
+            FlowBot AI Assistant
           </CardTitle>
           <p className="text-sm text-gray-600">
-            I can help you generate documents, analyze files, create spreadsheets, and automate workflows!
+            I can generate documents & images, analyze files, create spreadsheets, sort data, automate workflows, and understand any text!
           </p>
         </CardHeader>
         
         <CardContent className="flex-1 flex flex-col">
+          {/* Drag and Drop Zone */}
+          <div
+            className={`mb-4 border-2 border-dashed rounded-lg p-4 text-center transition-colors ${
+              isDragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
+            }`}
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
+            onDrop={handleDrop}
+          >
+            <Upload className="mx-auto h-8 w-8 text-gray-400" />
+            <p className="text-sm text-gray-600">
+              {isDragOver ? 'Drop files here' : 'Drag and drop files for AI analysis'}
+            </p>
+          </div>
+
           {/* Messages */}
           <div className="flex-1 overflow-y-auto space-y-4 mb-4 max-h-96">
             {messages.length === 0 && (
               <div className="text-center text-gray-500 py-8">
                 <Bot className="mx-auto h-12 w-12 mb-4 text-gray-300" />
-                <p>Hi! I'm Sparky, your AI assistant. How can I help you today?</p>
+                <p>Hi! I'm FlowBot, your AI assistant. How can I help you today?</p>
                 <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
                   <div className="flex items-center justify-center p-2 bg-blue-50 rounded">
                     <FileText className="mr-2 h-4 w-4" />
@@ -230,11 +266,11 @@ export const AIAssistant = () => {
                   </div>
                   <div className="flex items-center justify-center p-2 bg-purple-50 rounded">
                     <BarChart3 className="mr-2 h-4 w-4" />
-                    Data Analysis
+                    Data Analysis & Spreadsheets
                   </div>
                   <div className="flex items-center justify-center p-2 bg-orange-50 rounded">
                     <Upload className="mr-2 h-4 w-4" />
-                    File Processing
+                    File Processing & Sorting
                   </div>
                 </div>
               </div>
@@ -275,7 +311,7 @@ export const AIAssistant = () => {
                   <div className="flex items-center">
                     <Bot className="mr-2 h-4 w-4" />
                     <Loader2 className="h-4 w-4 animate-spin" />
-                    <span className="ml-2">Sparky is thinking...</span>
+                    <span className="ml-2">FlowBot is thinking...</span>
                   </div>
                 </div>
               </div>
@@ -310,7 +346,7 @@ export const AIAssistant = () => {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   onKeyPress={handleKeyPress}
-                  placeholder="Ask me to generate documents, analyze files, create spreadsheets..."
+                  placeholder="Ask me to generate documents, create images, analyze files, sort data, create spreadsheets, automate workflows..."
                   disabled={loading}
                   className="resize-none"
                 />
@@ -321,7 +357,6 @@ export const AIAssistant = () => {
                 type="file"
                 onChange={handleFileUpload}
                 className="hidden"
-                accept=".pdf,.csv,.docx,.xlsx,.txt,.zip,.jpg,.jpeg,.png"
               />
               
               <Button

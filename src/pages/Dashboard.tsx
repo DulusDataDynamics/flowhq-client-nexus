@@ -1,5 +1,8 @@
+
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
+import { usePlanLimits } from '@/hooks/usePlanLimits';
+import { useSubscription } from '@/hooks/useSubscription';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { AIAssistant } from '@/components/AIAssistant';
 import { ClientsPage } from '@/components/ClientsPage';
@@ -20,7 +23,6 @@ import {
   DollarSign,
   Zap
 } from 'lucide-react';
-import { usePlanLimits } from '@/hooks/usePlanLimits';
 
 const DashboardOverview = () => {
   const [stats, setStats] = useState({
@@ -31,6 +33,7 @@ const DashboardOverview = () => {
   });
   const { user } = useAuth();
   const { planLimits } = usePlanLimits();
+  const { createCheckoutSession, startFreeTrial, loading } = useSubscription();
 
   useEffect(() => {
     loadDashboardStats();
@@ -58,6 +61,23 @@ const DashboardOverview = () => {
     }
   };
 
+  const handleQuickAction = (action: string) => {
+    switch (action) {
+      case 'add-client':
+        window.location.href = '/dashboard#clients';
+        break;
+      case 'upload-file':
+        window.location.href = '/dashboard#files';
+        break;
+      case 'create-invoice':
+        window.location.href = '/dashboard#invoices';
+        break;
+      case 'chat-ai':
+        window.location.href = '/dashboard#flowbot';
+        break;
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -67,7 +87,7 @@ const DashboardOverview = () => {
             Welcome back! Here's what's happening with your FlowHQ workspace.
           </p>
         </div>
-        <Button>
+        <Button onClick={() => createCheckoutSession('professional')} disabled={loading}>
           <Zap className="mr-2 h-4 w-4" />
           Upgrade Plan
         </Button>
@@ -96,33 +116,33 @@ const DashboardOverview = () => {
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalFiles}</div>
             <p className="text-xs text-muted-foreground">
-              +0% from last month
+              Total uploaded files
             </p>
           </CardContent>
         </Card>
         
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Invoices Sent</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">AI Interactions</CardTitle>
+            <Bot className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">0</div>
+            <div className="text-2xl font-bold">{stats.aiInteractions}</div>
             <p className="text-xs text-muted-foreground">
-              +0% from last month
+              FlowBot conversations
             </p>
           </CardContent>
         </Card>
         
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Revenue</CardTitle>
+            <CardTitle className="text-sm font-medium">Generated Content</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">R0.00</div>
+            <div className="text-2xl font-bold">{stats.generatedContent}</div>
             <p className="text-xs text-muted-foreground">
-              +0% from last month
+              AI generated items
             </p>
           </CardContent>
         </Card>
@@ -166,12 +186,22 @@ const DashboardOverview = () => {
               </div>
             </div>
             {planLimits.plan === 'free' && (
-              <Button variant="outline" className="w-full">
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={() => startFreeTrial()}
+                disabled={loading}
+              >
                 Start Free Trial
               </Button>
             )}
             {(planLimits.plan === 'trial' || planLimits.plan === 'free') && (
-              <Button variant="outline" className="w-full">
+              <Button 
+                variant="outline" 
+                className="w-full"
+                onClick={() => createCheckoutSession('professional')}
+                disabled={loading}
+              >
                 Upgrade Plan
               </Button>
             )}
@@ -209,28 +239,44 @@ const DashboardOverview = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-2">
-            <Button className="w-full justify-start" variant="outline">
+            <Button 
+              className="w-full justify-start" 
+              variant="outline"
+              onClick={() => handleQuickAction('add-client')}
+            >
               <Users className="mr-2 h-4 w-4" />
               Add New Client
             </Button>
-            <Button className="w-full justify-start" variant="outline">
+            <Button 
+              className="w-full justify-start" 
+              variant="outline"
+              onClick={() => handleQuickAction('upload-file')}
+            >
               <FileText className="mr-2 h-4 w-4" />
               Upload File
             </Button>
-            <Button className="w-full justify-start" variant="outline">
+            <Button 
+              className="w-full justify-start" 
+              variant="outline"
+              onClick={() => handleQuickAction('create-invoice')}
+            >
               <DollarSign className="mr-2 h-4 w-4" />
               Create Invoice
             </Button>
-            <Button className="w-full justify-start" variant="outline">
+            <Button 
+              className="w-full justify-start" 
+              variant="outline"
+              onClick={() => handleQuickAction('chat-ai')}
+            >
               <Bot className="mr-2 h-4 w-4" />
-              Chat with Sparky AI
+              Chat with FlowBot AI
             </Button>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>Sparky AI Assistant</CardTitle>
+            <CardTitle>FlowBot AI Assistant</CardTitle>
             <CardDescription>
               What your AI assistant can help you with
             </CardDescription>
