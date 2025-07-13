@@ -5,7 +5,8 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/components/ui/use-toast';
-import { Loader2 } from 'lucide-react';
+import { Loader2, X } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 export const AuthForm = () => {
   const [isSignUp, setIsSignUp] = useState(false);
@@ -15,6 +16,7 @@ export const AuthForm = () => {
   const [loading, setLoading] = useState(false);
   const { signUp, signIn } = useAuth();
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,28 +34,43 @@ export const AuthForm = () => {
         toast({
           title: "Error",
           description: result.error.message,
-          variant: "destructive"
+          variant: "destructive",
+          duration: 5000
         });
       } else if (isSignUp) {
         toast({
           title: "Success",
-          description: "Account created! Please check your email to verify your account."
+          description: "Account created! Please check your email to verify your account.",
+          duration: 5000
         });
       }
     } catch (error) {
       toast({
         title: "Error",
         description: "An unexpected error occurred",
-        variant: "destructive"
+        variant: "destructive",
+        duration: 5000
       });
     } finally {
       setLoading(false);
     }
   };
 
+  const handleExit = () => {
+    navigate('/');
+  };
+
   return (
     <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-      <Card className="w-full max-w-md">
+      <Card className="w-full max-w-md relative">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleExit}
+          className="absolute top-2 right-2 h-6 w-6 rounded-full p-0"
+        >
+          <X className="h-4 w-4" />
+        </Button>
         <CardHeader className="text-center">
           <CardTitle className="text-2xl font-bold text-blue-600">FlowHQ</CardTitle>
           <CardDescription>

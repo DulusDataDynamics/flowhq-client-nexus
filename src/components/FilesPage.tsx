@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -60,7 +59,6 @@ export const FilesPage = () => {
     setFilteredFiles(filtered);
   }, [files, searchTerm]);
 
-  // Auto-dismiss toast messages after 5 seconds
   const showToast = useCallback((title: string, description: string, variant?: "default" | "destructive") => {
     toast({
       title,
@@ -284,7 +282,7 @@ export const FilesPage = () => {
         </div>
       </div>
 
-      {/* Drag and Drop Zone */}
+      {/* Drag and Drop Zone with Upload Button */}
       <div
         className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${
           isDragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
@@ -297,9 +295,17 @@ export const FilesPage = () => {
         <p className="mt-4 text-lg font-semibold">
           {isDragOver ? 'Drop files here' : 'Drag and drop files here'}
         </p>
-        <p className="text-gray-500">
+        <p className="text-gray-500 mb-4">
           or click the upload button above. Supports all file types.
         </p>
+        <Button
+          onClick={() => document.getElementById('file-upload')?.click()}
+          disabled={uploading}
+          variant="outline"
+        >
+          <Upload className="mr-2 h-4 w-4" />
+          Choose Files
+        </Button>
       </div>
 
       {/* Storage Usage */}

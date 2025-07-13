@@ -17,7 +17,17 @@ serve(async (req) => {
     const openAIKey = Deno.env.get('OPENAI_API_KEY')
     
     if (!openAIKey) {
-      throw new Error('OpenAI API key not configured')
+      console.error('OpenAI API key not configured')
+      return new Response(
+        JSON.stringify({ 
+          error: 'OpenAI API key not configured',
+          response: 'I apologize, but my AI capabilities are not properly configured. Please contact the administrator to set up the OpenAI API key.'
+        }),
+        { 
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      )
     }
 
     console.log('FlowBot processing request for user:', userId)
@@ -106,9 +116,7 @@ I've created a high-quality image based on your request: "${message}"
 - Quality: Professional standard
 - Generated with DALL-E 3
 
-**Image URL:** ${imageUrl}
-
-The image has been generated and is ready for download or use in your projects. You can save it directly from the URL above.
+The image has been generated and is ready for download or use in your projects.
 
 Would you like me to create variations of this image or help you with anything else?`
           
@@ -130,14 +138,16 @@ Would you like me to create variations of this image or help you with anything e
 
           console.log('Image generation completed and saved')
         } else {
-          throw new Error('Image generation failed')
+          const errorData = await imageResponse.text()
+          console.error('Image generation failed:', errorData)
+          throw new Error('Image generation failed: ' + errorData)
         }
       } catch (error) {
         console.error('Image generation error:', error)
         response = "I apologize, but I encountered an issue generating the image. Please try again with a more specific description, or let me know if you'd like help with document generation, file analysis, or data processing instead."
       }
     } else {
-      console.log('Generating comprehensive response with GPT-4')
+      console.log('Generating comprehensive response with GPT')
       
       // Enhanced system prompt for better responses
       if (wantsDataProcessing || fileContent) {
@@ -156,7 +166,7 @@ Would you like me to create variations of this image or help you with anything e
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
-            model: 'gpt-4',
+            model: 'gpt-4o-mini',
             messages: [
               { role: 'system', content: systemPrompt },
               { role: 'user', content: userPrompt }
@@ -213,7 +223,9 @@ Would you like me to create variations of this image or help you with anything e
 
           console.log('Comprehensive response generated successfully')
         } else {
-          throw new Error('AI response generation failed')
+          const errorData = await chatResponse.text()
+          console.error('Chat completion failed:', errorData)
+          throw new Error('Chat completion failed: ' + errorData)
         }
       } catch (error) {
         console.error('Chat completion error:', error)
@@ -247,7 +259,7 @@ Please try rephrasing your request, or let me know specifically what you'd like 
     return new Response(
       JSON.stringify({ 
         error: 'FlowBot encountered an error',
-        message: 'I apologize for the technical difficulty. Please try your request again, and I\'ll do my best to help you with document generation, image creation, file analysis, or workflow automation.'
+        response: 'I apologize for the technical difficulty. Please try your request again, and I\'ll do my best to help you with document generation, image creation, file analysis, or workflow automation.'
       }),
       { 
         status: 500,

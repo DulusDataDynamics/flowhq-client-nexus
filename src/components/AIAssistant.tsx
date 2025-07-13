@@ -49,7 +49,6 @@ export const AIAssistant = () => {
     loadConversationHistory();
   }, []);
 
-  // Auto-dismiss toast messages after 5 seconds
   const showToast = useCallback((title: string, description: string, variant?: "default" | "destructive") => {
     toast({
       title,
@@ -174,6 +173,10 @@ export const AIAssistant = () => {
         }
       }
 
+      console.log('Sending message to FlowBot:', input);
+      console.log('File URL:', fileUrl);
+      console.log('User ID:', user.id);
+
       const { data, error } = await supabase.functions.invoke('ai-assistant', {
         body: {
           message: input,
@@ -182,7 +185,17 @@ export const AIAssistant = () => {
         }
       });
 
-      if (error) throw error;
+      console.log('FlowBot response:', data);
+      console.log('FlowBot error:', error);
+
+      if (error) {
+        console.error('FlowBot function error:', error);
+        throw new Error(error.message || 'Failed to get response from FlowBot');
+      }
+
+      if (!data || !data.response) {
+        throw new Error('Invalid response from FlowBot');
+      }
 
       const botMessage: Message = {
         id: (Date.now() + 1).toString(),
@@ -204,8 +217,20 @@ export const AIAssistant = () => {
           metadata: data.metadata
         });
 
+      showToast("FlowBot", "Response generated successfully");
+
     } catch (error) {
       console.error('Error sending message:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      
+      const errorBotMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        content: `I apologize, but I'm having trouble processing your request right now. Error: ${errorMessage}. Please try again, or let me know if you need help with document generation, image creation, file analysis, or workflow automation!`,
+        isUser: false,
+        timestamp: new Date()
+      };
+
+      setMessages(prev => [...prev, errorBotMessage]);
       showToast("Error", "Failed to send message. Please try again.", "destructive");
     } finally {
       setLoading(false);
@@ -234,7 +259,7 @@ export const AIAssistant = () => {
         </CardHeader>
         
         <CardContent className="flex-1 flex flex-col">
-          {/* Drag and Drop Zone */}
+          {/* Drag and Drop Zone with Upload Button */}
           <div
             className={`mb-4 border-2 border-dashed rounded-lg p-4 text-center transition-colors ${
               isDragOver ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
@@ -247,6 +272,15 @@ export const AIAssistant = () => {
             <p className="text-sm text-gray-600">
               {isDragOver ? 'Drop files here' : 'Drag and drop files for AI analysis'}
             </p>
+            <p className="text-xs text-gray-500 mb-2">or</p>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => fileInputRef.current?.click()}
+            >
+              <Upload className="mr-2 h-4 w-4" />
+              Choose File
+            </Button>
           </div>
 
           {/* Messages */}
@@ -294,9 +328,18 @@ export const AIAssistant = () => {
                     )}
                     <div className="flex-1">
                       <p className="whitespace-pre-wrap">{message.content}</p>
+                      {message.metadata && message.metadata.imageUrl && (
+                        <div className="mt-2">
+                          <img 
+                            src={message.metadata.imageUrl} 
+                            alt="Generated image" 
+                            className="max-w-full h-auto rounded-lg"
+                          />
+                        </div>
+                      )}
                       {message.metadata && (
                         <div className="mt-2 text-xs opacity-75">
-                          <p>Generated content available for download</p>
+                          <p>Generated content available</p>
                         </div>
                       )}
                     </div>
