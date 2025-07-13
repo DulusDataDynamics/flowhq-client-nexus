@@ -7,28 +7,29 @@ import { Check, Zap } from "lucide-react";
 const Pricing = () => {
   const plans = [
     {
-      name: "Starter",
+      name: "Free Trial",
       price: "Free",
-      period: "forever",
+      period: "3 days",
       description: "Perfect for getting started",
       features: [
-        "1 Active Client",
+        "30 Active Clients",
         "5GB Storage",
         "Basic Messaging",
         "File Sharing",
         "Mobile App Access",
         "Community Support"
       ],
-      cta: "Get Started Free",
+      cta: "Start Free Trial",
       popular: false
     },
     {
       name: "Professional",
-      price: "$29",
+      price: "R149",
+      usdPrice: "$8.99",
       period: "/month",
       description: "For growing freelancers",
       features: [
-        "10 Active Clients",
+        "150 Active Clients",
         "100GB Storage",
         "Custom Branding",
         "Advanced Analytics",
@@ -37,12 +38,13 @@ const Pricing = () => {
         "Priority Support",
         "FlowBot AI Assistant"
       ],
-      cta: "Start Free Trial",
+      cta: "Start Professional",
       popular: true
     },
     {
       name: "Agency",
-      price: "$99",
+      price: "R799",
+      usdPrice: "$49.99",
       period: "/month",
       description: "For teams and agencies",
       features: [
@@ -71,7 +73,7 @@ const Pricing = () => {
             </span>
           </h2>
           <p className="text-xl text-gray-600 max-w-2xl mx-auto">
-            Start free and scale as you grow. No hidden fees, no long-term contracts.
+            Start with a free trial and scale as you grow. No hidden fees, no long-term contracts.
           </p>
         </div>
         
@@ -101,6 +103,11 @@ const Pricing = () => {
                     <span className={`text-lg ${plan.popular ? 'text-blue-100' : 'text-gray-500'}`}>
                       {plan.period}
                     </span>
+                    {plan.usdPrice && (
+                      <div className={`text-sm mt-1 ${plan.popular ? 'text-blue-200' : 'text-gray-500'}`}>
+                        (~{plan.usdPrice} USD)
+                      </div>
+                    )}
                   </div>
                   <p className={`mt-4 ${plan.popular ? 'text-blue-100' : 'text-gray-600'}`}>
                     {plan.description}
@@ -134,7 +141,7 @@ const Pricing = () => {
         
         <div className="text-center mt-12">
           <p className="text-gray-600">
-            All plans include a 14-day free trial. No credit card required.
+            All paid plans include secure payment processing via Stripe.
           </p>
         </div>
       </div>
