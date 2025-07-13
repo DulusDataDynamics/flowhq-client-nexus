@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { DashboardLayout } from '@/components/DashboardLayout';
@@ -45,9 +44,7 @@ const DashboardOverview = ({ onNavigate }: { onNavigate: (page: string) => void 
         title: "Payment Successful!",
         description: `Welcome to the ${plan} plan! Your account has been upgraded.`,
       });
-      // Refresh plan limits
       refreshPlan();
-      // Clean up URL
       window.history.replaceState({}, document.title, window.location.pathname);
     } else if (paymentStatus === 'cancelled') {
       toast({
@@ -109,7 +106,6 @@ const DashboardOverview = ({ onNavigate }: { onNavigate: (page: string) => void 
 
       <DashboardStats stats={stats} />
 
-      {/* Plan Usage */}
       <Card>
         <CardHeader>
           <CardTitle>Plan Usage - {planLimits.plan.charAt(0).toUpperCase() + planLimits.plan.slice(1)} Plan</CardTitle>
@@ -195,7 +191,6 @@ const DashboardOverview = ({ onNavigate }: { onNavigate: (page: string) => void 
         </CardContent>
       </Card>
 
-      {/* Quick Actions and FlowBot Info */}
       <div className="grid gap-4 md:grid-cols-2">
         <QuickActions onNavigate={onNavigate} />
         

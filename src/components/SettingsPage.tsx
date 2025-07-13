@@ -10,6 +10,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { useAuth } from '@/hooks/useAuth';
 import { useToast } from '@/hooks/use-toast';
+import { useTheme } from '@/contexts/ThemeContext';
+import { usePlanLimits } from '@/hooks/usePlanLimits';
+import { useSubscription } from '@/hooks/useSubscription';
 import { supabase } from '@/integrations/supabase/client';
 import { 
   User, 
@@ -19,9 +22,8 @@ import {
   Zap,
   Crown,
   Save,
-  Mail,
-  Phone,
-  Building
+  Moon,
+  Sun
 } from 'lucide-react';
 
 export const SettingsPage = () => {
@@ -42,6 +44,9 @@ export const SettingsPage = () => {
   const [saving, setSaving] = useState(false);
   const { user, signOut } = useAuth();
   const { toast } = useToast();
+  const { theme, toggleTheme } = useTheme();
+  const { planLimits } = usePlanLimits();
+  const { createCheckoutSession } = useSubscription();
 
   useEffect(() => {
     loadProfile();
@@ -113,6 +118,13 @@ export const SettingsPage = () => {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleSaveNotifications = () => {
+    toast({
+      title: "Success",
+      description: "Notification preferences saved"
+    });
   };
 
   const handleSignOut = async () => {
@@ -207,6 +219,23 @@ export const SettingsPage = () => {
                   rows={3}
                 />
               </div>
+              
+              <div className="flex items-center justify-between pt-4 border-t">
+                <div className="space-y-0.5">
+                  <Label className="text-base flex items-center">
+                    {theme === 'dark' ? <Moon className="mr-2 h-4 w-4" /> : <Sun className="mr-2 h-4 w-4" />}
+                    Dark Mode
+                  </Label>
+                  <p className="text-sm text-muted-foreground">
+                    Toggle between light and dark theme
+                  </p>
+                </div>
+                <Switch
+                  checked={theme === 'dark'}
+                  onCheckedChange={toggleTheme}
+                />
+              </div>
+
               <Button onClick={handleSaveProfile} disabled={saving}>
                 <Save className="mr-2 h-4 w-4" />
                 {saving ? 'Saving...' : 'Save Changes'}
@@ -283,7 +312,7 @@ export const SettingsPage = () => {
                   }
                 />
               </div>
-              <Button>
+              <Button onClick={handleSaveNotifications}>
                 <Save className="mr-2 h-4 w-4" />
                 Save Preferences
               </Button>
@@ -307,54 +336,60 @@ export const SettingsPage = () => {
                 <div className="flex items-center space-x-3">
                   <Crown className="h-8 w-8 text-blue-600" />
                   <div>
-                    <h3 className="font-semibold">Free Plan</h3>
+                    <h3 className="font-semibold">{planLimits.plan.charAt(0).toUpperCase() + planLimits.plan.slice(1)} Plan</h3>
                     <p className="text-sm text-muted-foreground">
-                      1 client • 1GB storage • Basic AI features
+                      {planLimits.maxClients === -1 ? 'Unlimited' : planLimits.maxClients} clients • {planLimits.maxStorage}GB storage
                     </p>
                   </div>
                 </div>
                 <Badge variant="secondary">Current</Badge>
               </div>
               
-              <div className="grid gap-4 md:grid-cols-2">
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center">
-                      <Zap className="mr-2 h-5 w-5 text-orange-500" />
-                      Pro Plan
-                    </CardTitle>
-                    <CardDescription>$29/month</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-2 text-sm">
-                      <li>• Unlimited clients</li>
-                      <li>• 100GB storage</li>
-                      <li>• Advanced AI features</li>
-                      <li>• Priority support</li>
-                    </ul>
-                    <Button className="w-full mt-4">Upgrade to Pro</Button>
-                  </CardContent>
-                </Card>
-                
-                <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center">
-                      <Crown className="mr-2 h-5 w-5 text-purple-500" />
-                      Enterprise
-                    </CardTitle>
-                    <CardDescription>$99/month</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <ul className="space-y-2 text-sm">
-                      <li>• Everything in Pro</li>
-                      <li>• Unlimited storage</li>
-                      <li>• Custom integrations</li>
-                      <li>• Dedicated support</li>
-                    </ul>
-                    <Button variant="outline" className="w-full mt-4">Contact Sales</Button>
-                  </CardContent>
-                </Card>
-              </div>
+              {planLimits.plan !== 'professional' && (
+                <div className="grid gap-4 md:grid-cols-2">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center">
+                        <Zap className="mr-2 h-5 w-5 text-orange-500" />
+                        Pro Plan
+                      </CardTitle>
+                      <CardDescription>$29/month</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <ul className="space-y-2 text-sm">
+                        <li>• 150 clients</li>
+                        <li>• 100GB storage</li>
+                        <li>• Advanced AI features</li>
+                        <li>• Priority support</li>
+                      </ul>
+                      <Button className="w-full mt-4" onClick={() => createCheckoutSession('professional')}>
+                        Upgrade to Pro
+                      </Button>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center">
+                        <Crown className="mr-2 h-5 w-5 text-purple-500" />
+                        Enterprise
+                      </CardTitle>
+                      <CardDescription>$99/month</CardDescription>
+                    </CardHeader>
+                    <CardContent>
+                      <ul className="space-y-2 text-sm">
+                        <li>• Unlimited clients</li>
+                        <li>• 1TB storage</li>
+                        <li>• Custom integrations</li>
+                        <li>• Dedicated support</li>
+                      </ul>
+                      <Button variant="outline" className="w-full mt-4" onClick={() => createCheckoutSession('agency')}>
+                        Upgrade to Enterprise
+                      </Button>
+                    </CardContent>
+                  </Card>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -376,7 +411,14 @@ export const SettingsPage = () => {
                 <p className="text-sm text-muted-foreground">
                   Last changed 30 days ago
                 </p>
-                <Button variant="outline">Change Password</Button>
+                <Button variant="outline" onClick={() => {
+                  toast({
+                    title: "Password Change",
+                    description: "Password change functionality will be available soon"
+                  });
+                }}>
+                  Change Password
+                </Button>
               </div>
               
               <div className="space-y-2">
@@ -384,21 +426,20 @@ export const SettingsPage = () => {
                 <p className="text-sm text-muted-foreground">
                   Add an extra layer of security to your account
                 </p>
-                <Button variant="outline">Enable 2FA</Button>
-              </div>
-              
-              <div className="space-y-2">
-                <Label>Active Sessions</Label>
-                <p className="text-sm text-muted-foreground">
-                  Manage your active login sessions
-                </p>
-                <Button variant="outline">View Sessions</Button>
+                <Button variant="outline" onClick={() => {
+                  toast({
+                    title: "2FA Setup",
+                    description: "Two-factor authentication will be available soon"
+                  });
+                }}>
+                  Enable 2FA
+                </Button>
               </div>
               
               <div className="pt-4 border-t space-y-2">
-                <Label className="text-red-600">Danger Zone</Label>
+                <Label className="text-red-600">Sign Out</Label>
                 <p className="text-sm text-muted-foreground">
-                  Permanently delete your account and all data
+                  Sign out of your account
                 </p>
                 <Button variant="destructive" onClick={handleSignOut}>
                   Sign Out

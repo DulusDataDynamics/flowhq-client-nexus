@@ -1,7 +1,9 @@
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Users, FileText, DollarSign, Bot } from 'lucide-react';
+import { Users, FileText, DollarSign, Bot, Calculator as CalcIcon } from 'lucide-react';
+import { Calculator } from '@/components/Calculator';
+import { Dialog, DialogContent, DialogTrigger } from '@/components/ui/dialog';
 
 interface QuickActionsProps {
   onNavigate: (page: string) => void;
@@ -49,6 +51,20 @@ export const QuickActions = ({ onNavigate }: QuickActionsProps) => {
           <Bot className="mr-2 h-4 w-4" />
           Chat with FlowBot AI
         </Button>
+        <Dialog>
+          <DialogTrigger asChild>
+            <Button 
+              className="w-full justify-start" 
+              variant="outline"
+            >
+              <CalcIcon className="mr-2 h-4 w-4" />
+              Calculator
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md">
+            <Calculator />
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );
