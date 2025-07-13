@@ -3,6 +3,10 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { DashboardLayout } from '@/components/DashboardLayout';
 import { AIAssistant } from '@/components/AIAssistant';
+import { ClientsPage } from '@/components/ClientsPage';
+import { FilesPage } from '@/components/FilesPage';
+import { InvoicesPage } from '@/components/InvoicesPage';
+import { SettingsPage } from '@/components/SettingsPage';
 import { AuthForm } from '@/components/AuthForm';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -13,7 +17,9 @@ import {
   Bot, 
   Users,
   TrendingUp,
-  Activity
+  Activity,
+  DollarSign,
+  Zap
 } from 'lucide-react';
 
 const DashboardOverview = () => {
@@ -53,67 +59,129 @@ const DashboardOverview = () => {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
-        <p className="text-muted-foreground">
-          Welcome back! Here's what's happening with your FlowHQ workspace.
-        </p>
+      <div className="flex justify-between items-center">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
+          <p className="text-muted-foreground">
+            Welcome back! Here's what's happening with your FlowHQ workspace.
+          </p>
+        </div>
+        <Button>
+          <Zap className="mr-2 h-4 w-4" />
+          Upgrade Plan
+        </Button>
       </div>
 
       {/* Stats Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Projects</CardTitle>
-            <FileText className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Active Clients</CardTitle>
+            <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalProjects}</div>
             <p className="text-xs text-muted-foreground">
-              Active client projects
+              +100% from last month
             </p>
           </CardContent>
         </Card>
         
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Files Processed</CardTitle>
-            <Activity className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Files Shared</CardTitle>
+            <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{stats.totalFiles}</div>
             <p className="text-xs text-muted-foreground">
-              Documents and media files
+              +0% from last month
             </p>
           </CardContent>
         </Card>
         
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">AI Interactions</CardTitle>
-            <Bot className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Invoices Sent</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.aiInteractions}</div>
+            <div className="text-2xl font-bold">0</div>
             <p className="text-xs text-muted-foreground">
-              Conversations with Sparky
+              +0% from last month
             </p>
           </CardContent>
         </Card>
         
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Generated Content</CardTitle>
+            <CardTitle className="text-sm font-medium">Revenue</CardTitle>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.generatedContent}</div>
+            <div className="text-2xl font-bold">R0.00</div>
             <p className="text-xs text-muted-foreground">
-              AI-created documents & images
+              +0% from last month
             </p>
           </CardContent>
         </Card>
       </div>
+
+      {/* Plan Usage */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Plan Usage</CardTitle>
+          <CardDescription>Your current plan limits and usage</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span>Active Clients</span>
+                <span>{stats.totalProjects} of 1</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div 
+                  className="bg-blue-600 h-2 rounded-full" 
+                  style={{ width: `${Math.min((stats.totalProjects / 1) * 100, 100)}%` }}
+                ></div>
+              </div>
+            </div>
+            <div>
+              <div className="flex justify-between text-sm mb-1">
+                <span>Storage Used</span>
+                <span>0 MB of 1 GB</span>
+              </div>
+              <div className="w-full bg-gray-200 rounded-full h-2">
+                <div className="bg-blue-600 h-2 rounded-full" style={{ width: '0%' }}></div>
+              </div>
+            </div>
+            <Button variant="outline" className="w-full">
+              Upgrade Plan
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Recent Activity */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Recent Activity</CardTitle>
+          <CardDescription>Latest updates from your account</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="flex items-center space-x-4">
+              <div className="w-2 h-2 bg-blue-600 rounded-full"></div>
+              <div className="flex-1">
+                <p className="text-sm font-medium">Account created</p>
+                <p className="text-xs text-muted-foreground">Welcome to FlowHQ!</p>
+              </div>
+              <span className="text-xs text-muted-foreground">Just now</span>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Quick Actions */}
       <div className="grid gap-4 md:grid-cols-2">
@@ -126,25 +194,29 @@ const DashboardOverview = () => {
           </CardHeader>
           <CardContent className="space-y-2">
             <Button className="w-full justify-start" variant="outline">
+              <Users className="mr-2 h-4 w-4" />
+              Add New Client
+            </Button>
+            <Button className="w-full justify-start" variant="outline">
               <FileText className="mr-2 h-4 w-4" />
-              Create New Project
+              Upload File
+            </Button>
+            <Button className="w-full justify-start" variant="outline">
+              <DollarSign className="mr-2 h-4 w-4" />
+              Create Invoice
             </Button>
             <Button className="w-full justify-start" variant="outline">
               <Bot className="mr-2 h-4 w-4" />
-              Chat with AI Assistant
-            </Button>
-            <Button className="w-full justify-start" variant="outline">
-              <BarChart3 className="mr-2 h-4 w-4" />
-              Generate Report
+              Chat with Sparky AI
             </Button>
           </CardContent>
         </Card>
 
         <Card>
           <CardHeader>
-            <CardTitle>AI Assistant Features</CardTitle>
+            <CardTitle>Sparky AI Assistant</CardTitle>
             <CardDescription>
-              What Sparky can help you with
+              What your AI assistant can help you with
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -186,34 +258,16 @@ const Dashboard = () => {
     switch (currentPage) {
       case 'dashboard':
         return <DashboardOverview />;
-      case 'ai-assistant':
+      case 'clients':
+        return <ClientsPage />;
+      case 'files':
+        return <FilesPage />;
+      case 'invoices':
+        return <InvoicesPage />;
+      case 'flowbot':
         return <AIAssistant />;
-      case 'projects':
-        return (
-          <div className="space-y-6">
-            <h2 className="text-3xl font-bold tracking-tight">Projects</h2>
-            <Card>
-              <CardContent className="p-6">
-                <p className="text-center text-gray-500">
-                  Projects management coming soon! For now, use the AI Assistant to create and manage your work.
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        );
       case 'settings':
-        return (
-          <div className="space-y-6">
-            <h2 className="text-3xl font-bold tracking-tight">Settings</h2>
-            <Card>
-              <CardContent className="p-6">
-                <p className="text-center text-gray-500">
-                  Settings panel coming soon! Your account is managed automatically.
-                </p>
-              </CardContent>
-            </Card>
-          </div>
-        );
+        return <SettingsPage />;
       default:
         return <DashboardOverview />;
     }

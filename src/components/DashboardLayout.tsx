@@ -4,8 +4,10 @@ import { Button } from '@/components/ui/button';
 import { useAuth } from '@/hooks/useAuth';
 import { 
   LayoutDashboard, 
+  Users,
+  FileText,
+  DollarSign,
   Bot, 
-  FileText, 
   Settings, 
   LogOut,
   Menu,
@@ -25,8 +27,10 @@ export const DashboardLayout = ({ children, currentPage, onPageChange }: Dashboa
 
   const menuItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { id: 'ai-assistant', label: 'AI Assistant', icon: Bot },
-    { id: 'projects', label: 'Projects', icon: FileText },
+    { id: 'clients', label: 'Clients', icon: Users },
+    { id: 'files', label: 'Files', icon: FileText },
+    { id: 'invoices', label: 'Invoices', icon: DollarSign },
+    { id: 'flowbot', label: 'FlowBot', icon: Bot },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
@@ -54,34 +58,59 @@ export const DashboardLayout = ({ children, currentPage, onPageChange }: Dashboa
       )}>
         <div className="flex flex-col h-full">
           <div className="p-6 border-b">
-            <h1 className="text-2xl font-bold text-blue-600">FlowHQ</h1>
-            <p className="text-sm text-gray-500 mt-1">Welcome, {user?.email}</p>
+            <div className="flex items-center space-x-2">
+              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-sm">F</span>
+              </div>
+              <div>
+                <h1 className="text-xl font-bold text-gray-900">FlowHQ</h1>
+                <p className="text-xs text-gray-500">Client Portal</p>
+              </div>
+            </div>
+          </div>
+          
+          <div className="p-4">
+            <div className="bg-blue-50 rounded-lg p-3 mb-4">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-xs font-medium text-blue-700">Free Plan</span>
+                <span className="text-xs text-blue-600">1 of 1 clients used</span>
+              </div>
+              <div className="w-full bg-blue-200 rounded-full h-1.5">
+                <div className="bg-blue-600 h-1.5 rounded-full" style={{ width: '100%' }}></div>
+              </div>
+              <Button size="sm" className="w-full mt-2 text-xs">
+                Upgrade
+              </Button>
+            </div>
           </div>
           
           <nav className="flex-1 p-4">
-            <ul className="space-y-2">
+            <div className="space-y-1">
               {menuItems.map((item) => {
                 const Icon = item.icon;
                 return (
-                  <li key={item.id}>
-                    <Button
-                      variant={currentPage === item.id ? "default" : "ghost"}
-                      className="w-full justify-start"
-                      onClick={() => {
-                        onPageChange(item.id);
-                        setSidebarOpen(false);
-                      }}
-                    >
-                      <Icon className="mr-3 h-4 w-4" />
-                      {item.label}
-                    </Button>
-                  </li>
+                  <Button
+                    key={item.id}
+                    variant={currentPage === item.id ? "default" : "ghost"}
+                    className="w-full justify-start"
+                    onClick={() => {
+                      onPageChange(item.id);
+                      setSidebarOpen(false);
+                    }}
+                  >
+                    <Icon className="mr-3 h-4 w-4" />
+                    {item.label}
+                  </Button>
                 );
               })}
-            </ul>
+            </div>
           </nav>
           
           <div className="p-4 border-t">
+            <div className="mb-4">
+              <p className="text-sm font-medium truncate">{user?.email}</p>
+              <p className="text-xs text-gray-500">Logged in</p>
+            </div>
             <Button
               variant="ghost"
               className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
