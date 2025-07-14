@@ -1,11 +1,10 @@
-
 import { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { useAuth } from '@/hooks/useAuth';
+import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
 import { FileUploadArea } from '@/components/files/FileUploadArea';
@@ -43,8 +42,10 @@ export const FilesPage = () => {
   const { toast } = useToast();
 
   useEffect(() => {
-    loadFiles();
-  }, []);
+    if (user) {
+      loadFiles();
+    }
+  }, [user]);
 
   useEffect(() => {
     const filtered = files.filter(file =>
@@ -164,21 +165,7 @@ export const FilesPage = () => {
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
 
-      // Store in localStorage for offline access
-      const reader = new FileReader();
-      reader.onload = () => {
-        const savedFiles = JSON.parse(localStorage.getItem('downloadedFiles') || '[]');
-        savedFiles.push({
-          id: file.id,
-          filename: file.filename,
-          data: reader.result,
-          downloadedAt: new Date().toISOString()
-        });
-        localStorage.setItem('downloadedFiles', JSON.stringify(savedFiles));
-      };
-      reader.readAsDataURL(data);
-
-      showToast("Success", "File downloaded and saved for offline access");
+      showToast("Success", "File downloaded successfully");
     } catch (error) {
       console.error('Error downloading file:', error);
       showToast("Error", "Failed to download file", "destructive");
@@ -214,6 +201,14 @@ export const FilesPage = () => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
   };
 
+  if (!user) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <p className="text-muted-foreground">Please log in to access your files.</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
@@ -227,7 +222,6 @@ export const FilesPage = () => {
 
       <FileUploadArea onFilesSelected={uploadFiles} uploading={uploading} />
 
-      {/* Storage Usage */}
       <Card>
         <CardContent className="p-4">
           <div className="space-y-2">
