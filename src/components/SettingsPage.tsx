@@ -1,55 +1,33 @@
 
 import { useState, useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Switch } from '@/components/ui/switch';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Badge } from '@/components/ui/badge';
-import { useAuth } from '@/hooks/useAuth';
-import { useToast } from '@/hooks/use-toast';
+import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
-import { usePlanLimits } from '@/hooks/usePlanLimits';
-import { useSubscription } from '@/hooks/useSubscription';
+import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { 
-  User, 
-  Bell, 
-  Shield, 
-  CreditCard, 
-  Zap,
-  Crown,
-  Save,
-  Moon,
-  Sun
-} from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { Separator } from '@/components/ui/separator';
+import { User, Moon, Sun, Save } from 'lucide-react';
 
 export const SettingsPage = () => {
+  const { user, signOut } = useAuth();
+  const { theme, toggleTheme } = useTheme();
+  const { toast } = useToast();
+  
   const [profile, setProfile] = useState({
     full_name: '',
     email: '',
-    phone: '',
-    company: '',
-    bio: ''
+    avatar_url: ''
   });
-  const [notifications, setNotifications] = useState({
-    email_notifications: true,
-    push_notifications: true,
-    invoice_reminders: true,
-    client_updates: true
-  });
-  const [loading, setLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const { user, signOut } = useAuth();
-  const { toast } = useToast();
-  const { theme, toggleTheme } = useTheme();
-  const { planLimits } = usePlanLimits();
-  const { createCheckoutSession } = useSubscription();
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
-    loadProfile();
+    if (user) {
+      loadProfile();
+    }
   }, [user]);
 
   const loadProfile = async () => {
@@ -62,36 +40,37 @@ export const SettingsPage = () => {
         .eq('id', user.id)
         .single();
 
-      if (error && error.code !== 'PGRST116') throw error;
+      if (error && error.code !== 'PGRST116') {
+        throw error;
+      }
 
       if (data) {
         setProfile({
           full_name: data.full_name || '',
           email: data.email || user.email || '',
-          phone: '',
-          company: '',
-          bio: ''
+          avatar_url: data.avatar_url || ''
         });
       } else {
         setProfile({
-          full_name: '',
+          full_name: user.user_metadata?.full_name || '',
           email: user.email || '',
-          phone: '',
-          company: '',
-          bio: ''
+          avatar_url: ''
         });
       }
     } catch (error) {
       console.error('Error loading profile:', error);
-    } finally {
-      setLoading(false);
+      toast({
+        title: "Error",
+        description: "Failed to load profile",
+        variant: "destructive"
+      });
     }
   };
 
-  const handleSaveProfile = async () => {
+  const saveProfile = async () => {
     if (!user) return;
 
-    setSaving(true);
+    setLoading(true);
     try {
       const { error } = await supabase
         .from('profiles')
@@ -99,6 +78,7 @@ export const SettingsPage = () => {
           id: user.id,
           full_name: profile.full_name,
           email: profile.email,
+          avatar_url: profile.avatar_url,
           updated_at: new Date().toISOString()
         });
 
@@ -112,343 +92,122 @@ export const SettingsPage = () => {
       console.error('Error saving profile:', error);
       toast({
         title: "Error",
-        description: "Failed to update profile",
+        description: "Failed to save profile",
         variant: "destructive"
       });
     } finally {
-      setSaving(false);
+      setLoading(false);
     }
-  };
-
-  const handleSaveNotifications = () => {
-    toast({
-      title: "Success",
-      description: "Notification preferences saved"
-    });
   };
 
   const handleSignOut = async () => {
     await signOut();
   };
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-3xl font-bold tracking-tight">Settings</h2>
         <p className="text-muted-foreground">
-          Manage your account settings and preferences
+          Manage your account settings and preferences.
         </p>
       </div>
 
-      <Tabs defaultValue="profile" className="space-y-6">
-        <TabsList className="grid w-full grid-cols-4">
-          <TabsTrigger value="profile">Profile</TabsTrigger>
-          <TabsTrigger value="notifications">Notifications</TabsTrigger>
-          <TabsTrigger value="billing">Billing</TabsTrigger>
-          <TabsTrigger value="security">Security</TabsTrigger>
-        </TabsList>
+      {/* Profile Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            <User className="h-5 w-5" />
+            Profile Information
+          </CardTitle>
+          <CardDescription>
+            Update your personal information and preferences.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="fullName">Full Name</Label>
+              <Input
+                id="fullName"
+                value={profile.full_name}
+                onChange={(e) => setProfile({ ...profile, full_name: e.target.value })}
+                placeholder="Enter your full name"
+              />
+            </div>
+            <div>
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={profile.email}
+                onChange={(e) => setProfile({ ...profile, email: e.target.value })}
+                placeholder="Enter your email"
+              />
+            </div>
+          </div>
+          <div>
+            <Label htmlFor="avatarUrl">Avatar URL</Label>
+            <Input
+              id="avatarUrl"
+              value={profile.avatar_url}
+              onChange={(e) => setProfile({ ...profile, avatar_url: e.target.value })}
+              placeholder="Enter avatar URL (optional)"
+            />
+          </div>
+          <Button onClick={saveProfile} disabled={loading}>
+            <Save className="mr-2 h-4 w-4" />
+            {loading ? 'Saving...' : 'Save Profile'}
+          </Button>
+        </CardContent>
+      </Card>
 
-        <TabsContent value="profile" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <User className="mr-2 h-5 w-5" />
-                Profile Information
-              </CardTitle>
-              <CardDescription>
-                Update your personal information and preferences
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="full_name">Full Name</Label>
-                  <Input
-                    id="full_name"
-                    value={profile.full_name}
-                    onChange={(e) => setProfile({...profile, full_name: e.target.value})}
-                    placeholder="Enter your full name"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="email">Email</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={profile.email}
-                    onChange={(e) => setProfile({...profile, email: e.target.value})}
-                    placeholder="your.email@example.com"
-                  />
-                </div>
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="phone">Phone</Label>
-                  <Input
-                    id="phone"
-                    value={profile.phone}
-                    onChange={(e) => setProfile({...profile, phone: e.target.value})}
-                    placeholder="+1 (555) 123-4567"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="company">Company</Label>
-                  <Input
-                    id="company"
-                    value={profile.company}
-                    onChange={(e) => setProfile({...profile, company: e.target.value})}
-                    placeholder="Your company name"
-                  />
-                </div>
-              </div>
-              <div>
-                <Label htmlFor="bio">Bio</Label>
-                <Textarea
-                  id="bio"
-                  value={profile.bio}
-                  onChange={(e) => setProfile({...profile, bio: e.target.value})}
-                  placeholder="Tell us about yourself..."
-                  rows={3}
-                />
-              </div>
-              
-              <div className="flex items-center justify-between pt-4 border-t">
-                <div className="space-y-0.5">
-                  <Label className="text-base flex items-center">
-                    {theme === 'dark' ? <Moon className="mr-2 h-4 w-4" /> : <Sun className="mr-2 h-4 w-4" />}
-                    Dark Mode
-                  </Label>
-                  <p className="text-sm text-muted-foreground">
-                    Toggle between light and dark theme
-                  </p>
-                </div>
-                <Switch
-                  checked={theme === 'dark'}
-                  onCheckedChange={toggleTheme}
-                />
-              </div>
+      {/* Appearance Settings */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2">
+            {theme === 'dark' ? <Moon className="h-5 w-5" /> : <Sun className="h-5 w-5" />}
+            Appearance
+          </CardTitle>
+          <CardDescription>
+            Customize the appearance of the application.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-center justify-between">
+            <div className="space-y-0.5">
+              <Label>Dark Mode</Label>
+              <p className="text-sm text-muted-foreground">
+                Toggle between light and dark theme.
+              </p>
+            </div>
+            <Switch
+              checked={theme === 'dark'}
+              onCheckedChange={toggleTheme}
+            />
+          </div>
+        </CardContent>
+      </Card>
 
-              <Button onClick={handleSaveProfile} disabled={saving}>
-                <Save className="mr-2 h-4 w-4" />
-                {saving ? 'Saving...' : 'Save Changes'}
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
+      <Separator />
 
-        <TabsContent value="notifications" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Bell className="mr-2 h-5 w-5" />
-                Notification Preferences
-              </CardTitle>
-              <CardDescription>
-                Choose what notifications you want to receive
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label className="text-base">Email Notifications</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Receive notifications via email
-                  </p>
-                </div>
-                <Switch
-                  checked={notifications.email_notifications}
-                  onCheckedChange={(checked) => 
-                    setNotifications({...notifications, email_notifications: checked})
-                  }
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label className="text-base">Push Notifications</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Receive push notifications in your browser
-                  </p>
-                </div>
-                <Switch
-                  checked={notifications.push_notifications}
-                  onCheckedChange={(checked) => 
-                    setNotifications({...notifications, push_notifications: checked})
-                  }
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label className="text-base">Invoice Reminders</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Get reminded about overdue invoices
-                  </p>
-                </div>
-                <Switch
-                  checked={notifications.invoice_reminders}
-                  onCheckedChange={(checked) => 
-                    setNotifications({...notifications, invoice_reminders: checked})
-                  }
-                />
-              </div>
-              <div className="flex items-center justify-between">
-                <div className="space-y-0.5">
-                  <Label className="text-base">Client Updates</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Notifications about client activity and messages
-                  </p>
-                </div>
-                <Switch
-                  checked={notifications.client_updates}
-                  onCheckedChange={(checked) => 
-                    setNotifications({...notifications, client_updates: checked})
-                  }
-                />
-              </div>
-              <Button onClick={handleSaveNotifications}>
-                <Save className="mr-2 h-4 w-4" />
-                Save Preferences
-              </Button>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="billing" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <CreditCard className="mr-2 h-5 w-5" />
-                Current Plan
-              </CardTitle>
-              <CardDescription>
-                Manage your subscription and billing
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between p-4 border rounded-lg">
-                <div className="flex items-center space-x-3">
-                  <Crown className="h-8 w-8 text-blue-600" />
-                  <div>
-                    <h3 className="font-semibold">{planLimits.plan.charAt(0).toUpperCase() + planLimits.plan.slice(1)} Plan</h3>
-                    <p className="text-sm text-muted-foreground">
-                      {planLimits.maxClients === -1 ? 'Unlimited' : planLimits.maxClients} clients • {planLimits.maxStorage}GB storage
-                    </p>
-                  </div>
-                </div>
-                <Badge variant="secondary">Current</Badge>
-              </div>
-              
-              {planLimits.plan !== 'professional' && (
-                <div className="grid gap-4 md:grid-cols-2">
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center">
-                        <Zap className="mr-2 h-5 w-5 text-orange-500" />
-                        Pro Plan
-                      </CardTitle>
-                      <CardDescription>$29/month</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <ul className="space-y-2 text-sm">
-                        <li>• 150 clients</li>
-                        <li>• 100GB storage</li>
-                        <li>• Advanced AI features</li>
-                        <li>• Priority support</li>
-                      </ul>
-                      <Button className="w-full mt-4" onClick={() => createCheckoutSession('professional')}>
-                        Upgrade to Pro
-                      </Button>
-                    </CardContent>
-                  </Card>
-                  
-                  <Card>
-                    <CardHeader>
-                      <CardTitle className="flex items-center">
-                        <Crown className="mr-2 h-5 w-5 text-purple-500" />
-                        Enterprise
-                      </CardTitle>
-                      <CardDescription>$99/month</CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                      <ul className="space-y-2 text-sm">
-                        <li>• Unlimited clients</li>
-                        <li>• 1TB storage</li>
-                        <li>• Custom integrations</li>
-                        <li>• Dedicated support</li>
-                      </ul>
-                      <Button variant="outline" className="w-full mt-4" onClick={() => createCheckoutSession('agency')}>
-                        Upgrade to Enterprise
-                      </Button>
-                    </CardContent>
-                  </Card>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="security" className="space-y-6">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <Shield className="mr-2 h-5 w-5" />
-                Security Settings
-              </CardTitle>
-              <CardDescription>
-                Manage your account security and authentication
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Password</Label>
-                <p className="text-sm text-muted-foreground">
-                  Last changed 30 days ago
-                </p>
-                <Button variant="outline" onClick={() => {
-                  toast({
-                    title: "Password Change",
-                    description: "Password change functionality will be available soon"
-                  });
-                }}>
-                  Change Password
-                </Button>
-              </div>
-              
-              <div className="space-y-2">
-                <Label>Two-Factor Authentication</Label>
-                <p className="text-sm text-muted-foreground">
-                  Add an extra layer of security to your account
-                </p>
-                <Button variant="outline" onClick={() => {
-                  toast({
-                    title: "2FA Setup",
-                    description: "Two-factor authentication will be available soon"
-                  });
-                }}>
-                  Enable 2FA
-                </Button>
-              </div>
-              
-              <div className="pt-4 border-t space-y-2">
-                <Label className="text-red-600">Sign Out</Label>
-                <p className="text-sm text-muted-foreground">
-                  Sign out of your account
-                </p>
-                <Button variant="destructive" onClick={handleSignOut}>
-                  Sign Out
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+      {/* Account Actions */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-red-600">Danger Zone</CardTitle>
+          <CardDescription>
+            Irreversible and destructive actions.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Button 
+            variant="destructive" 
+            onClick={handleSignOut}
+          >
+            Sign Out
+          </Button>
+        </CardContent>
+      </Card>
     </div>
   );
 };
