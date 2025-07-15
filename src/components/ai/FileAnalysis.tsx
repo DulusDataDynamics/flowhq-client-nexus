@@ -1,167 +1,110 @@
 
 import { useState } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { FileUploadArea } from '@/components/files/FileUploadArea';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Upload, X, FileText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/integrations/supabase/client';
-import { useAuth } from '@/contexts/AuthContext';
-import { BarChart3, FileText, TrendingUp, AlertCircle } from 'lucide-react';
-
-interface AnalysisResult {
-  summary: string;
-  keyPoints: string[];
-  recommendations: string[];
-  dataInsights?: {
-    totalRecords: number;
-    categories: { name: string; count: number }[];
-    trends: string[];
-  };
-}
 
 interface FileAnalysisProps {
-  onAnalysisComplete: (analysis: AnalysisResult, fileName: string) => void;
+  onAnalysisComplete: (analysis: any, fileName: string) => void;
 }
 
 export const FileAnalysis = ({ onAnalysisComplete }: FileAnalysisProps) => {
-  const [uploading, setUploading] = useState(false);
+  const [file, setFile] = useState<File | null>(null);
   const [analyzing, setAnalyzing] = useState(false);
-  const { user } = useAuth();
   const { toast } = useToast();
 
-  const handleFilesSelected = async (files: File[]) => {
-    if (!user) return;
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const selectedFile = event.target.files?.[0];
+    if (selectedFile) {
+      setFile(selectedFile);
+    }
+  };
 
-    const file = files[0];
+  const handleAnalyze = async () => {
     if (!file) return;
 
-    setUploading(true);
+    setAnalyzing(true);
+    
     try {
-      // Upload file to Supabase storage
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Math.random()}.${fileExt}`;
-      const filePath = `${user.id}/${fileName}`;
-
-      const { data: uploadData, error: uploadError } = await supabase.storage
-        .from('user-files')
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
-      // Analyze the file
-      setAnalyzing(true);
-      const analysisResult = await analyzeFile(file);
+      // Simulate file analysis - in a real app, you'd upload and analyze the file
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
-      onAnalysisComplete(analysisResult, file.name);
+      const mockAnalysis = {
+        summary: `Analysis of ${file.name} completed successfully.`,
+        keyPoints: [
+          "Document contains important business information",
+          "Structure is well-organized with clear sections",
+          "Data appears to be current and relevant"
+        ],
+        recommendations: [
+          "Consider implementing the proposed changes",
+          "Review data accuracy periodically",
+          "Share with relevant stakeholders"
+        ]
+      };
+
+      onAnalysisComplete(mockAnalysis, file.name);
+      setFile(null);
       
       toast({
-        title: "File analyzed successfully",
-        description: `Analysis complete for ${file.name}`
+        title: "Analysis complete",
+        description: `Successfully analyzed ${file.name}`
       });
-
     } catch (error) {
-      console.error('Error uploading/analyzing file:', error);
       toast({
-        title: "Error",
-        description: "Failed to analyze file",
+        title: "Analysis failed",
+        description: "Failed to analyze the file. Please try again.",
         variant: "destructive"
       });
     } finally {
-      setUploading(false);
       setAnalyzing(false);
     }
   };
 
-  const analyzeFile = async (file: File): Promise<AnalysisResult> => {
-    // Mock analysis - in a real app, this would call an AI service
-    const fileType = file.type;
-    const fileName = file.name.toLowerCase();
-
-    if (fileType.includes('csv') || fileName.includes('excel') || fileType.includes('spreadsheet')) {
-      return {
-        summary: "This spreadsheet contains structured data with multiple columns and rows. The data appears to be well-organized with clear headers and consistent formatting.",
-        keyPoints: [
-          "Contains 1,250 rows of data",
-          "15 columns with mixed data types",
-          "No missing critical values detected",
-          "Data spans from 2023 to 2024"
-        ],
-        recommendations: [
-          "Consider creating pivot tables for better data visualization",
-          "Add data validation rules for future entries",
-          "Implement regular backup procedures"
-        ],
-        dataInsights: {
-          totalRecords: 1250,
-          categories: [
-            { name: "Sales", count: 450 },
-            { name: "Marketing", count: 320 },
-            { name: "Support", count: 280 },
-            { name: "Operations", count: 200 }
-          ],
-          trends: [
-            "Sales data shows 23% increase over last quarter",
-            "Support tickets decreased by 15%",
-            "Marketing leads conversion improved by 8%"
-          ]
-        }
-      };
-    } else if (fileType.includes('pdf') || fileType.includes('document')) {
-      return {
-        summary: "This document contains detailed text content with structured sections. The writing style is professional and the content appears to be business-related.",
-        keyPoints: [
-          "Document contains 2,340 words",
-          "15 pages with 8 sections",
-          "Professional business language detected",
-          "Contains charts and tables"
-        ],
-        recommendations: [
-          "Consider creating an executive summary",
-          "Add table of contents for better navigation",
-          "Include more visual elements for engagement"
-        ]
-      };
-    } else {
-      return {
-        summary: "File uploaded successfully. This appears to be a media or binary file that would benefit from specialized analysis tools.",
-        keyPoints: [
-          `File size: ${(file.size / 1024 / 1024).toFixed(2)} MB`,
-          `File type: ${file.type || 'Unknown'}`,
-          "Binary content detected"
-        ],
-        recommendations: [
-          "Use appropriate software for this file type",
-          "Consider file compression if size is large",
-          "Ensure proper backup and version control"
-        ]
-      };
-    }
-  };
-
   return (
-    <Card>
+    <Card className="mt-4">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <BarChart3 className="h-5 w-5" />
+          <Upload className="h-5 w-5" />
           File Analysis
         </CardTitle>
-        <CardDescription>
-          Upload files for AI-powered analysis and insights
-        </CardDescription>
       </CardHeader>
-      <CardContent>
-        {analyzing ? (
-          <div className="text-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Analyzing your file...</p>
-          </div>
-        ) : (
-          <FileUploadArea 
-            onFilesSelected={handleFilesSelected}
-            uploading={uploading}
+      <CardContent className="space-y-4">
+        <div>
+          <Label htmlFor="file-upload">Select File for Analysis</Label>
+          <Input
+            id="file-upload"
+            type="file"
+            onChange={handleFileSelect}
+            accept=".pdf,.doc,.docx,.txt,.csv,.xlsx"
           />
+        </div>
+        
+        {file && (
+          <div className="flex items-center gap-2 p-2 bg-muted rounded">
+            <FileText className="h-4 w-4" />
+            <span className="text-sm">{file.name}</span>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setFile(null)}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         )}
+        
+        <div className="flex gap-2">
+          <Button 
+            onClick={handleAnalyze}
+            disabled={!file || analyzing}
+          >
+            {analyzing ? 'Analyzing...' : 'Analyze File'}
+          </Button>
+        </div>
       </CardContent>
     </Card>
   );

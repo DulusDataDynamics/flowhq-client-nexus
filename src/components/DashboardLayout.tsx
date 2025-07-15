@@ -2,7 +2,6 @@
 import { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTheme } from '@/contexts/ThemeContext';
 import { 
   LayoutDashboard, 
   Users, 
@@ -48,7 +47,6 @@ export const DashboardLayout = ({ children, currentPage, onPageChange }: Dashboa
             <span className="text-sm text-muted-foreground">
               {user?.email}
             </span>
-            
             <Button variant="outline" size="sm" onClick={signOut}>
               Sign Out
             </Button>

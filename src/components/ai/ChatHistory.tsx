@@ -4,7 +4,6 @@ import { useAuth } from '@/contexts/AuthContext';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { MessageSquare, Plus, Clock } from 'lucide-react';
 
 interface ChatSession {
@@ -35,7 +34,7 @@ export const ChatHistory = ({ onSelectChat, onNewChat, currentChatId }: ChatHist
     if (!user) return;
 
     try {
-      // For now, we'll use mock data since we need to implement chat sessions
+      // Mock data for chat sessions - in a real app, you'd group conversations by session
       const mockSessions: ChatSession[] = [
         {
           id: 'session-1',
@@ -66,51 +65,47 @@ export const ChatHistory = ({ onSelectChat, onNewChat, currentChatId }: ChatHist
   };
 
   return (
-    <Card className="h-full">
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-lg flex items-center gap-2">
-            <Clock className="h-5 w-5" />
-            Chat History
-          </CardTitle>
-          <Button size="sm" onClick={onNewChat}>
-            <Plus className="h-4 w-4 mr-1" />
-            New
-          </Button>
-        </div>
-      </CardHeader>
-      <CardContent className="p-0">
-        <ScrollArea className="h-[400px]">
-          <div className="space-y-2 p-4">
-            {loading ? (
-              <div className="text-center text-muted-foreground">Loading...</div>
-            ) : chatSessions.length === 0 ? (
-              <div className="text-center text-muted-foreground">
-                No chat history yet
-              </div>
-            ) : (
-              chatSessions.map((session) => (
-                <Button
-                  key={session.id}
-                  variant={currentChatId === session.id ? "default" : "ghost"}
-                  className="w-full justify-start text-left"
-                  onClick={() => onSelectChat(session.id)}
-                >
-                  <div className="flex flex-col items-start">
-                    <div className="flex items-center gap-2">
-                      <MessageSquare className="h-4 w-4" />
-                      <span className="font-medium truncate">{session.title}</span>
-                    </div>
-                    <span className="text-xs text-muted-foreground">
-                      {new Date(session.created_at).toLocaleDateString()} • {session.message_count} messages
-                    </span>
+    <div className="h-full flex flex-col">
+      <div className="p-4 border-b">
+        <Button size="sm" onClick={onNewChat} className="w-full">
+          <Plus className="h-4 w-4 mr-1" />
+          New Chat
+        </Button>
+      </div>
+      
+      <ScrollArea className="flex-1">
+        <div className="space-y-2 p-4">
+          {loading ? (
+            <div className="text-center text-muted-foreground text-sm">Loading...</div>
+          ) : chatSessions.length === 0 ? (
+            <div className="text-center text-muted-foreground text-sm">
+              No chat history yet
+            </div>
+          ) : (
+            chatSessions.map((session) => (
+              <Button
+                key={session.id}
+                variant={currentChatId === session.id ? "default" : "ghost"}
+                className="w-full justify-start text-left h-auto p-3"
+                onClick={() => onSelectChat(session.id)}
+              >
+                <div className="flex flex-col items-start w-full">
+                  <div className="flex items-center gap-2 w-full">
+                    <MessageSquare className="h-4 w-4 flex-shrink-0" />
+                    <span className="font-medium truncate flex-1">{session.title}</span>
                   </div>
-                </Button>
-              ))
-            )}
-          </div>
-        </ScrollArea>
-      </CardContent>
-    </Card>
+                  <div className="flex items-center gap-2 mt-1 text-xs text-muted-foreground">
+                    <Clock className="h-3 w-3" />
+                    <span>{new Date(session.created_at).toLocaleDateString()}</span>
+                    <span>•</span>
+                    <span>{session.message_count} messages</span>
+                  </div>
+                </div>
+              </Button>
+            ))
+          )}
+        </div>
+      </ScrollArea>
+    </div>
   );
 };

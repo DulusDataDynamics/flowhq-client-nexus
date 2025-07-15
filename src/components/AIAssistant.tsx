@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Bot, User, Plus, History, X, Upload } from 'lucide-react';
+import { Bot, User, Plus, History, X, Upload, ChevronLeft, ChevronRight } from 'lucide-react';
 import { ChatInterface } from './ai/ChatInterface';
 import { ChatHistory } from './ai/ChatHistory';
 import { FileAnalysis } from './ai/FileAnalysis';
@@ -60,11 +60,6 @@ export const AIAssistant = () => {
         .eq('user_id', user.id)
         .order('created_at', { ascending: true });
 
-      if (currentChatId) {
-        // In a real app, you'd filter by chat session
-        // For now, we'll load all conversations
-      }
-
       const { data, error } = await query;
 
       if (error) throw error;
@@ -113,7 +108,6 @@ export const AIAssistant = () => {
     try {
       let messageContent = input;
       
-      // If there's a file, enhance the message
       if (file) {
         messageContent += `\n\nFile uploaded: ${file.name} (${file.type})`;
         setFile(null);
@@ -130,7 +124,6 @@ export const AIAssistant = () => {
 
       let assistantResponse = data.response || 'I can help you with document generation, data analysis, file processing, and workflow automation. What would you like me to assist you with today?';
       
-      // Enhanced responses for analysis requests
       if (input.toLowerCase().includes('analyze') || input.toLowerCase().includes('report')) {
         assistantResponse += '\n\n📊 **Analysis Capabilities:**\n• Generate detailed reports and insights\n• Process and analyze uploaded files\n• Create data visualizations\n• Identify trends and patterns\n• Export findings to various formats\n\nPlease upload a file or provide more details about what you\'d like me to analyze.';
       }
@@ -144,7 +137,6 @@ export const AIAssistant = () => {
 
       setMessages(prev => [...prev, assistantMessage]);
 
-      // Save conversation to database
       await supabase
         .from('ai_conversations')
         .insert({
@@ -225,11 +217,11 @@ export const AIAssistant = () => {
         </p>
       </div>
 
-      <div className="flex gap-6">
+      <div className="flex gap-4">
         {/* Chat History Sidebar - Collapsible */}
         {showHistory && (
-          <div className="w-80">
-            <Card className="h-[600px]">
+          <div className="w-80 flex-shrink-0">
+            <Card className="h-[500px]">
               <CardHeader className="pb-3">
                 <div className="flex items-center justify-between">
                   <CardTitle className="text-lg flex items-center gap-2">
@@ -254,8 +246,8 @@ export const AIAssistant = () => {
 
         {/* Main Chat Area */}
         <div className="flex-1">
-          <Card className="h-[600px] flex flex-col">
-            <CardHeader>
+          <Card className="h-[500px] flex flex-col">
+            <CardHeader className="flex-shrink-0">
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle>Professional AI Assistant</CardTitle>
@@ -269,7 +261,7 @@ export const AIAssistant = () => {
                     size="sm"
                     onClick={() => setShowHistory(!showHistory)}
                   >
-                    <History className="h-4 w-4 mr-1" />
+                    {showHistory ? <ChevronLeft className="h-4 w-4 mr-1" /> : <ChevronRight className="h-4 w-4 mr-1" />}
                     History
                   </Button>
                   <Button 
@@ -287,9 +279,10 @@ export const AIAssistant = () => {
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="flex-1 flex flex-col p-4">
+            
+            <CardContent className="flex-1 flex flex-col p-4 min-h-0">
               <ScrollArea className="flex-1 pr-4 mb-4" ref={scrollAreaRef}>
-                <div className="space-y-4">
+                <div className="space-y-4 pb-4">
                   {messages.length === 0 && (
                     <div className="text-center text-muted-foreground py-8">
                       <Bot className="h-12 w-12 mx-auto mb-4 opacity-50" />
@@ -353,14 +346,16 @@ export const AIAssistant = () => {
                 </div>
               </ScrollArea>
               
-              <ChatInterface
-                input={input}
-                setInput={setInput}
-                onSendMessage={sendMessage}
-                loading={loading}
-                file={file}
-                setFile={setFile}
-              />
+              <div className="flex-shrink-0">
+                <ChatInterface
+                  input={input}
+                  setInput={setInput}
+                  onSendMessage={sendMessage}
+                  loading={loading}
+                  file={file}
+                  setFile={setFile}
+                />
+              </div>
             </CardContent>
           </Card>
         </div>

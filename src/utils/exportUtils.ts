@@ -66,22 +66,32 @@ export const exportClientData = async (format: 'pdf' | 'word' | 'excel', clientI
 };
 
 export const exportToExcel = (data: any[], filename: string = 'export') => {
-  // Create proper CSV content with headers and data
+  // Create proper Excel-compatible CSV with headers and structured data
   if (!data || data.length === 0) {
-    const csvContent = 'No data available';
+    const csvContent = 'Client Name,Description,Status,Created Date,Updated Date\nNo data available,,,,"';
     downloadFile(csvContent, `${filename}-${new Date().toISOString().split('T')[0]}.csv`, 'text/csv');
     return;
   }
 
-  const headers = Object.keys(data[0]);
+  // Define column headers for Excel compatibility
+  const headers = ['Client Name', 'Description', 'Status', 'Created Date', 'Updated Date'];
+  
+  // Map data to structured rows
+  const rows = data.map(item => [
+    item.name || '',
+    item.description || '',
+    item.status || '',
+    new Date(item.created_at).toLocaleDateString(),
+    new Date(item.updated_at).toLocaleDateString()
+  ]);
+
+  // Create CSV content with proper formatting for Excel
   const csvRows = [
     headers.join(','), // Header row
-    ...data.map(row => 
-      headers.map(header => {
-        const value = row[header];
-        // Handle values that might contain commas or quotes
-        const stringValue = value ? String(value).replace(/"/g, '""') : '';
-        return `"${stringValue}"`;
+    ...rows.map(row => 
+      row.map(cell => {
+        const cellValue = String(cell).replace(/"/g, '""');
+        return `"${cellValue}"`;
       }).join(',')
     )
   ];
@@ -114,38 +124,71 @@ export const exportToWord = (data: any[], filename: string = 'export', title: st
 
 const createHTMLContent = (data: any[], title: string) => {
   const tableRows = data.length > 0 ? `
-    <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
+    <table style="width: 100%; border-collapse: collapse; margin: 20px 0; border: 2px solid #333;">
       <thead>
         <tr style="background-color: #f5f5f5;">
-          ${Object.keys(data[0]).map(key => 
-            `<th style="border: 1px solid #ddd; padding: 12px; text-align: left;">${key}</th>`
-          ).join('')}
+          <th style="border: 1px solid #333; padding: 12px; text-align: left; font-weight: bold;">Client Name</th>
+          <th style="border: 1px solid #333; padding: 12px; text-align: left; font-weight: bold;">Description</th>
+          <th style="border: 1px solid #333; padding: 12px; text-align: left; font-weight: bold;">Status</th>
+          <th style="border: 1px solid #333; padding: 12px; text-align: left; font-weight: bold;">Created Date</th>
+          <th style="border: 1px solid #333; padding: 12px; text-align: left; font-weight: bold;">Updated Date</th>
         </tr>
       </thead>
       <tbody>
         ${data.map(item => `
           <tr>
-            ${Object.values(item).map(value => 
-              `<td style="border: 1px solid #ddd; padding: 12px;">${value || 'N/A'}</td>`
-            ).join('')}
+            <td style="border: 1px solid #333; padding: 12px;">${item.name || 'N/A'}</td>
+            <td style="border: 1px solid #333; padding: 12px;">${item.description || 'N/A'}</td>
+            <td style="border: 1px solid #333; padding: 12px;">${item.status || 'N/A'}</td>
+            <td style="border: 1px solid #333; padding: 12px;">${new Date(item.created_at).toLocaleDateString()}</td>
+            <td style="border: 1px solid #333; padding: 12px;">${new Date(item.updated_at).toLocaleDateString()}</td>
           </tr>
         `).join('')}
       </tbody>
     </table>
-  ` : '<p>No data available to display.</p>';
+  ` : '<p style="text-align: center; color: #666;">No data available to display.</p>';
 
   return `
     <!DOCTYPE html>
     <html>
     <head>
       <title>${title}</title>
+      <meta charset="UTF-8">
       <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        h1 { color: #333; margin-bottom: 20px; }
-        table { width: 100%; border-collapse: collapse; }
-        th, td { border: 1px solid #ddd; padding: 12px; text-align: left; }
-        th { background-color: #f5f5f5; font-weight: bold; }
-        tr:nth-child(even) { background-color: #f9f9f9; }
+        body { 
+          font-family: Arial, sans-serif; 
+          margin: 20px; 
+          line-height: 1.6;
+        }
+        h1 { 
+          color: #333; 
+          margin-bottom: 20px; 
+          text-align: center;
+          border-bottom: 2px solid #333;
+          padding-bottom: 10px;
+        }
+        table { 
+          width: 100%; 
+          border-collapse: collapse; 
+          margin: 20px 0;
+        }
+        th, td { 
+          border: 1px solid #333; 
+          padding: 12px; 
+          text-align: left; 
+        }
+        th { 
+          background-color: #f5f5f5; 
+          font-weight: bold; 
+        }
+        tr:nth-child(even) { 
+          background-color: #f9f9f9; 
+        }
+        @media print {
+          body { margin: 0; }
+          table { page-break-inside: auto; }
+          tr { page-break-inside: avoid; }
+        }
       </style>
     </head>
     <body>
@@ -158,36 +201,75 @@ const createHTMLContent = (data: any[], title: string) => {
 
 const createWordContent = (data: any[], title: string) => {
   const tableRows = data.length > 0 ? `
-    <table border="1" style="width: 100%; border-collapse: collapse;">
+    <table border="2" style="width: 100%; border-collapse: collapse; margin: 20px 0;">
       <thead>
         <tr style="background-color: #f5f5f5;">
-          ${Object.keys(data[0]).map(key => 
-            `<th style="padding: 8px; text-align: left;">${key}</th>`
-          ).join('')}
+          <th style="border: 2px solid #000; padding: 10px; text-align: left; font-weight: bold;">Client Name</th>
+          <th style="border: 2px solid #000; padding: 10px; text-align: left; font-weight: bold;">Description</th>
+          <th style="border: 2px solid #000; padding: 10px; text-align: left; font-weight: bold;">Status</th>
+          <th style="border: 2px solid #000; padding: 10px; text-align: left; font-weight: bold;">Created Date</th>
+          <th style="border: 2px solid #000; padding: 10px; text-align: left; font-weight: bold;">Updated Date</th>
         </tr>
       </thead>
       <tbody>
         ${data.map(item => `
           <tr>
-            ${Object.values(item).map(value => 
-              `<td style="padding: 8px;">${value || 'N/A'}</td>`
-            ).join('')}
+            <td style="border: 1px solid #000; padding: 10px;">${item.name || 'N/A'}</td>
+            <td style="border: 1px solid #000; padding: 10px;">${item.description || 'N/A'}</td>
+            <td style="border: 1px solid #000; padding: 10px;">${item.status || 'N/A'}</td>
+            <td style="border: 1px solid #000; padding: 10px;">${new Date(item.created_at).toLocaleDateString()}</td>
+            <td style="border: 1px solid #000; padding: 10px;">${new Date(item.updated_at).toLocaleDateString()}</td>
           </tr>
         `).join('')}
       </tbody>
     </table>
-  ` : '<p>No data available to display.</p>';
+  ` : '<p style="text-align: center;">No data available to display.</p>';
 
   return `
     <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word'>
     <head>
       <meta charset='utf-8'>
       <title>${title}</title>
+      <!--[if gte mso 9]>
+      <xml>
+        <w:WordDocument>
+          <w:View>Print</w:View>
+          <w:Zoom>90</w:Zoom>
+          <w:DoNotPromptForConvert/>
+          <w:DoNotShowRevisions/>
+          <w:DoNotShowInsertionsAndDeletions/>
+          <w:DoNotShowComments/>
+        </w:WordDocument>
+      </xml>
+      <![endif]-->
       <style>
-        body { font-family: Arial, sans-serif; }
-        table { border-collapse: collapse; width: 100%; }
-        th, td { border: 1px solid black; padding: 8px; text-align: left; }
-        th { background-color: #f5f5f5; font-weight: bold; }
+        body { 
+          font-family: Arial, sans-serif; 
+          margin: 20px;
+          line-height: 1.4;
+        }
+        h1 {
+          color: #000;
+          text-align: center;
+          margin-bottom: 20px;
+          border-bottom: 2px solid #000;
+          padding-bottom: 10px;
+        }
+        table { 
+          border-collapse: collapse; 
+          width: 100%; 
+          margin: 20px 0;
+        }
+        th, td { 
+          border: 1px solid #000; 
+          padding: 10px; 
+          text-align: left; 
+          vertical-align: top;
+        }
+        th { 
+          background-color: #f5f5f5; 
+          font-weight: bold; 
+        }
       </style>
     </head>
     <body>
