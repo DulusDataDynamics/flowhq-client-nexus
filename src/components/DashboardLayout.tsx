@@ -9,10 +9,7 @@ import {
   FileText, 
   Receipt, 
   Bot, 
-  Settings,
-  Moon,
-  Sun,
-  LogOut
+  Settings
 } from 'lucide-react';
 
 interface DashboardLayoutProps {
@@ -23,7 +20,6 @@ interface DashboardLayoutProps {
 
 export const DashboardLayout = ({ children, currentPage, onPageChange }: DashboardLayoutProps) => {
   const { user, signOut } = useAuth();
-  const { theme, toggleTheme } = useTheme();
 
   const navigationItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -49,24 +45,12 @@ export const DashboardLayout = ({ children, currentPage, onPageChange }: Dashboa
           </div>
           
           <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleTheme}
-            >
-              {theme === 'dark' ? (
-                <Sun className="h-5 w-5" />
-              ) : (
-                <Moon className="h-5 w-5" />
-              )}
-            </Button>
-            
             <span className="text-sm text-muted-foreground">
               {user?.email}
             </span>
             
-            <Button variant="ghost" size="icon" onClick={signOut}>
-              <LogOut className="h-5 w-5" />
+            <Button variant="outline" size="sm" onClick={signOut}>
+              Sign Out
             </Button>
           </div>
         </div>

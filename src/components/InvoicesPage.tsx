@@ -22,6 +22,8 @@ import { InvoiceActions } from './invoices/InvoiceActions';
 interface Invoice {
   id: string;
   client_name: string;
+  client_email?: string;
+  client_phone?: string;
   amount: number;
   description: string;
   due_date: string;
@@ -35,6 +37,8 @@ export const InvoicesPage = () => {
   const [loading, setLoading] = useState(true);
   const [formData, setFormData] = useState({
     client_name: '',
+    client_email: '',
+    client_phone: '',
     amount: '',
     description: '',
     due_date: ''
@@ -50,30 +54,9 @@ export const InvoicesPage = () => {
     if (!user) return;
 
     try {
-      // For now, we'll use a mock data structure since invoices table doesn't exist
+      // For now, we'll use an empty array since we're removing mock data
       // In a real app, you'd fetch from a proper invoices table
-      const mockInvoices: Invoice[] = [
-        {
-          id: '1',
-          client_name: 'Acme Corporation',
-          amount: 2500,
-          description: 'Website Development Services',
-          due_date: '2024-02-15',
-          status: 'sent',
-          created_at: '2024-01-15'
-        },
-        {
-          id: '2',
-          client_name: 'Tech Solutions Inc',
-          amount: 1800,
-          description: 'Mobile App Consultation',
-          due_date: '2024-02-20',
-          status: 'draft',
-          created_at: '2024-01-20'
-        }
-      ];
-
-      setInvoices(mockInvoices);
+      setInvoices([]);
     } catch (error) {
       console.error('Error loading invoices:', error);
       toast({
@@ -94,6 +77,8 @@ export const InvoicesPage = () => {
       const newInvoice: Invoice = {
         id: Date.now().toString(),
         client_name: formData.client_name,
+        client_email: formData.client_email,
+        client_phone: formData.client_phone,
         amount: parseFloat(formData.amount),
         description: formData.description,
         due_date: formData.due_date,
@@ -103,7 +88,14 @@ export const InvoicesPage = () => {
 
       setInvoices(prev => [...prev, newInvoice]);
       setShowForm(false);
-      setFormData({ client_name: '', amount: '', description: '', due_date: '' });
+      setFormData({ 
+        client_name: '', 
+        client_email: '', 
+        client_phone: '', 
+        amount: '', 
+        description: '', 
+        due_date: '' 
+      });
 
       toast({
         title: "Success",
@@ -226,6 +218,28 @@ export const InvoicesPage = () => {
                     value={formData.amount}
                     onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                     required
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="client_email">Client Email</Label>
+                  <Input
+                    id="client_email"
+                    type="email"
+                    value={formData.client_email}
+                    onChange={(e) => setFormData({ ...formData, client_email: e.target.value })}
+                    placeholder="client@example.com"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="client_phone">Client Phone</Label>
+                  <Input
+                    id="client_phone"
+                    type="tel"
+                    value={formData.client_phone}
+                    onChange={(e) => setFormData({ ...formData, client_phone: e.target.value })}
+                    placeholder="+1234567890"
                   />
                 </div>
               </div>

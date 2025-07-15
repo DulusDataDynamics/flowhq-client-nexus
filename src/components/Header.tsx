@@ -1,12 +1,9 @@
 
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
-import { useTheme } from '@/contexts/ThemeContext';
-import { Moon, Sun } from 'lucide-react';
 
 export const Header = () => {
   const { user, signOut } = useAuth();
-  const { theme, toggleTheme } = useTheme();
 
   return (
     <header className="border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -21,18 +18,6 @@ export const Header = () => {
         </div>
         
         <div className="flex items-center gap-4">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={toggleTheme}
-          >
-            {theme === 'dark' ? (
-              <Sun className="h-5 w-5" />
-            ) : (
-              <Moon className="h-5 w-5" />
-            )}
-          </Button>
-          
           {user ? (
             <div className="flex items-center gap-2">
               <span className="text-sm text-muted-foreground">

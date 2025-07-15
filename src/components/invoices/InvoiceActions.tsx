@@ -14,13 +14,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { Eye, MessageSquare, Share, Download, FileText, FileSpreadsheet, FileImage } from 'lucide-react';
+import { Eye, MessageSquare, Share, Download, FileText, FileSpreadsheet, FileImage, Mail, Phone } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { exportToPDF, exportToExcel, exportToWord } from '@/utils/exportUtils';
 
 interface Invoice {
   id: string;
   client_name: string;
+  client_email?: string;
+  client_phone?: string;
   amount: number;
   description: string;
   due_date: string;
@@ -43,6 +45,45 @@ export const InvoiceActions = ({ invoice }: InvoiceActionsProps) => {
 
   const handleMessage = () => {
     setShowMessageDialog(true);
+  };
+
+  const handleWhatsApp = () => {
+    if (invoice.client_phone) {
+      const message = `Hi ${invoice.client_name}, your invoice for $${invoice.amount} is ready. Due date: ${new Date(invoice.due_date).toLocaleDateString()}`;
+      const whatsappUrl = `https://wa.me/${invoice.client_phone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
+      window.open(whatsappUrl, '_blank');
+      toast({
+        title: "WhatsApp opened",
+        description: `Message prepared for ${invoice.client_name}`
+      });
+    } else {
+      toast({
+        title: "No phone number",
+        description: "Client phone number not available",
+        variant: "destructive"
+      });
+    }
+    setShowMessageDialog(false);
+  };
+
+  const handleEmail = () => {
+    if (invoice.client_email) {
+      const subject = `Invoice - ${invoice.client_name}`;
+      const body = `Dear ${invoice.client_name},\n\nYour invoice for $${invoice.amount} is ready.\nDescription: ${invoice.description}\nDue Date: ${new Date(invoice.due_date).toLocaleDateString()}\n\nThank you for your business!`;
+      const emailUrl = `mailto:${invoice.client_email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+      window.open(emailUrl, '_blank');
+      toast({
+        title: "Email client opened",
+        description: `Email prepared for ${invoice.client_name}`
+      });
+    } else {
+      toast({
+        title: "No email address",
+        description: "Client email address not available",
+        variant: "destructive"
+      });
+    }
+    setShowMessageDialog(false);
   };
 
   const handleShare = async () => {
@@ -165,6 +206,22 @@ export const InvoiceActions = ({ invoice }: InvoiceActionsProps) => {
                 <p className="capitalize">{invoice.status}</p>
               </div>
             </div>
+            {(invoice.client_email || invoice.client_phone) && (
+              <div className="grid grid-cols-2 gap-4">
+                {invoice.client_email && (
+                  <div>
+                    <label className="text-sm font-medium">Email</label>
+                    <p>{invoice.client_email}</p>
+                  </div>
+                )}
+                {invoice.client_phone && (
+                  <div>
+                    <label className="text-sm font-medium">Phone</label>
+                    <p>{invoice.client_phone}</p>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
@@ -173,31 +230,36 @@ export const InvoiceActions = ({ invoice }: InvoiceActionsProps) => {
       <Dialog open={showMessageDialog} onOpenChange={setShowMessageDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Send Message</DialogTitle>
+            <DialogTitle>Contact Client</DialogTitle>
             <DialogDescription>
-              Send a message to {invoice.client_name} regarding this invoice
+              Choose how to contact {invoice.client_name} regarding this invoice
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <textarea 
-              className="w-full p-3 border rounded-md resize-none"
-              rows={4}
-              placeholder="Type your message here..."
-            />
-            <div className="flex gap-2 justify-end">
-              <Button variant="outline" onClick={() => setShowMessageDialog(false)}>
-                Cancel
+            <div className="grid grid-cols-2 gap-4">
+              <Button 
+                onClick={handleWhatsApp}
+                disabled={!invoice.client_phone}
+                className="flex items-center gap-2"
+              >
+                <Phone className="h-4 w-4" />
+                WhatsApp
               </Button>
-              <Button onClick={() => {
-                setShowMessageDialog(false);
-                toast({
-                  title: "Message sent!",
-                  description: `Message sent to ${invoice.client_name}`
-                });
-              }}>
-                Send Message
+              <Button 
+                onClick={handleEmail}
+                disabled={!invoice.client_email}
+                variant="outline"
+                className="flex items-center gap-2"
+              >
+                <Mail className="h-4 w-4" />
+                Email
               </Button>
             </div>
+            {!invoice.client_phone && !invoice.client_email && (
+              <p className="text-sm text-muted-foreground text-center">
+                No contact information available for this client
+              </p>
+            )}
           </div>
         </DialogContent>
       </Dialog>

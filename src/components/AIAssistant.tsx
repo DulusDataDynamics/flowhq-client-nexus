@@ -3,11 +3,10 @@ import { useState, useEffect, useRef } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
-import { Bot, Send, User, Upload, BarChart3, MessageSquare, Plus } from 'lucide-react';
+import { Bot, User, Plus, History, X, Upload } from 'lucide-react';
 import { ChatInterface } from './ai/ChatInterface';
 import { ChatHistory } from './ai/ChatHistory';
 import { FileAnalysis } from './ai/FileAnalysis';
@@ -26,6 +25,7 @@ export const AIAssistant = () => {
   const [loading, setLoading] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [currentChatId, setCurrentChatId] = useState<string | null>(null);
+  const [showHistory, setShowHistory] = useState(false);
   const [showFileAnalysis, setShowFileAnalysis] = useState(false);
   const { user } = useAuth();
   const { toast } = useToast();
@@ -128,11 +128,11 @@ export const AIAssistant = () => {
 
       if (error) throw error;
 
-      let assistantResponse = data.response || 'Sorry, I could not process your request.';
+      let assistantResponse = data.response || 'I can help you with document generation, data analysis, file processing, and workflow automation. What would you like me to assist you with today?';
       
       // Enhanced responses for analysis requests
       if (input.toLowerCase().includes('analyze') || input.toLowerCase().includes('report')) {
-        assistantResponse += '\n\n📊 **Analysis Summary:**\n- I can provide detailed insights on your data\n- Generate comprehensive reports\n- Identify trends and patterns\n- Create visualizations and charts\n\nWould you like me to perform a specific type of analysis?';
+        assistantResponse += '\n\n📊 **Analysis Capabilities:**\n• Generate detailed reports and insights\n• Process and analyze uploaded files\n• Create data visualizations\n• Identify trends and patterns\n• Export findings to various formats\n\nPlease upload a file or provide more details about what you\'d like me to analyze.';
       }
 
       const assistantMessage: Message = {
@@ -164,7 +164,7 @@ export const AIAssistant = () => {
 
       const errorMessage: Message = {
         id: (Date.now() + 1).toString(),
-        content: 'Sorry, I encountered an error processing your request. Please try again.',
+        content: 'I apologize, but I encountered an error processing your request. Please try again.',
         sender: 'assistant',
         timestamp: new Date()
       };
@@ -186,7 +186,6 @@ export const AIAssistant = () => {
 
   const handleSelectChat = (chatId: string) => {
     setCurrentChatId(chatId);
-    // In a real app, this would load messages for this specific chat
     toast({
       title: "Chat loaded",
       description: "Previous conversation restored"
@@ -226,35 +225,60 @@ export const AIAssistant = () => {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Chat History Sidebar */}
-        <div className="lg:col-span-1">
-          <ChatHistory 
-            onSelectChat={handleSelectChat}
-            onNewChat={handleNewChat}
-            currentChatId={currentChatId}
-          />
-        </div>
+      <div className="flex gap-6">
+        {/* Chat History Sidebar - Collapsible */}
+        {showHistory && (
+          <div className="w-80">
+            <Card className="h-[600px]">
+              <CardHeader className="pb-3">
+                <div className="flex items-center justify-between">
+                  <CardTitle className="text-lg flex items-center gap-2">
+                    <History className="h-5 w-5" />
+                    Chat History
+                  </CardTitle>
+                  <Button size="sm" variant="ghost" onClick={() => setShowHistory(false)}>
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </CardHeader>
+              <CardContent className="p-0">
+                <ChatHistory 
+                  onSelectChat={handleSelectChat}
+                  onNewChat={handleNewChat}
+                  currentChatId={currentChatId}
+                />
+              </CardContent>
+            </Card>
+          </div>
+        )}
 
         {/* Main Chat Area */}
-        <div className="lg:col-span-3">
+        <div className="flex-1">
           <Card className="h-[600px] flex flex-col">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
-                  <CardTitle>Chat with FlowBot</CardTitle>
+                  <CardTitle>Professional AI Assistant</CardTitle>
                   <CardDescription>
-                    Ask me to generate documents, analyze data, or help with your workflows.
+                    Generate documents, analyze data, and automate workflows with AI.
                   </CardDescription>
                 </div>
                 <div className="flex gap-2">
                   <Button 
                     variant="outline" 
                     size="sm"
+                    onClick={() => setShowHistory(!showHistory)}
+                  >
+                    <History className="h-4 w-4 mr-1" />
+                    History
+                  </Button>
+                  <Button 
+                    variant="outline" 
+                    size="sm"
                     onClick={() => setShowFileAnalysis(!showFileAnalysis)}
                   >
-                    <BarChart3 className="h-4 w-4 mr-1" />
-                    Analyze
+                    <Upload className="h-4 w-4 mr-1" />
+                    Upload
                   </Button>
                   <Button variant="outline" size="sm" onClick={handleNewChat}>
                     <Plus className="h-4 w-4 mr-1" />
@@ -263,14 +287,20 @@ export const AIAssistant = () => {
                 </div>
               </div>
             </CardHeader>
-            <CardContent className="flex-1 flex flex-col">
-              <ScrollArea className="flex-1 pr-4" ref={scrollAreaRef}>
+            <CardContent className="flex-1 flex flex-col p-4">
+              <ScrollArea className="flex-1 pr-4 mb-4" ref={scrollAreaRef}>
                 <div className="space-y-4">
                   {messages.length === 0 && (
                     <div className="text-center text-muted-foreground py-8">
                       <Bot className="h-12 w-12 mx-auto mb-4 opacity-50" />
-                      <p>Start a conversation with FlowBot!</p>
-                      <p className="text-sm">Try asking: "Generate a project proposal template" or "Analyze my data for trends"</p>
+                      <p className="font-medium">Welcome to FlowBot!</p>
+                      <p className="text-sm">I can help you with:</p>
+                      <div className="text-sm mt-2 space-y-1">
+                        <p>• Document generation and templates</p>
+                        <p>• Data analysis and reporting</p>
+                        <p>• File processing and insights</p>
+                        <p>• Workflow automation</p>
+                      </div>
                     </div>
                   )}
                   {messages.map((message) => (
@@ -281,7 +311,7 @@ export const AIAssistant = () => {
                       }`}
                     >
                       {message.sender === 'assistant' && (
-                        <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center">
+                        <div className="w-8 h-8 rounded-full bg-blue-100 dark:bg-blue-900 flex items-center justify-center flex-shrink-0">
                           <Bot className="h-4 w-4 text-blue-600 dark:text-blue-300" />
                         </div>
                       )}
@@ -292,7 +322,7 @@ export const AIAssistant = () => {
                             : 'bg-gray-100 dark:bg-gray-800 text-gray-900 dark:text-gray-100'
                         }`}
                       >
-                        <p className="whitespace-pre-wrap">{message.content}</p>
+                        <p className="whitespace-pre-wrap text-sm">{message.content}</p>
                         <p className={`text-xs mt-1 ${
                           message.sender === 'user' ? 'text-blue-100' : 'text-gray-500 dark:text-gray-400'
                         }`}>
@@ -300,7 +330,7 @@ export const AIAssistant = () => {
                         </p>
                       </div>
                       {message.sender === 'user' && (
-                        <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center">
+                        <div className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center flex-shrink-0">
                           <User className="h-4 w-4 text-gray-600 dark:text-gray-300" />
                         </div>
                       )}

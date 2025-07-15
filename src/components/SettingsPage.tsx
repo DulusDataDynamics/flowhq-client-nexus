@@ -4,25 +4,29 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useTheme } from '@/contexts/ThemeContext';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
+import { usePlanLimits } from '@/hooks/usePlanLimits';
+import { useSubscription } from '@/hooks/useSubscription';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Separator } from '@/components/ui/separator';
-import { User, Moon, Sun, Save } from 'lucide-react';
+import { User, Moon, Sun, Save, Zap } from 'lucide-react';
 
 export const SettingsPage = () => {
   const { user, signOut } = useAuth();
   const { theme, toggleTheme } = useTheme();
   const { toast } = useToast();
+  const { planLimits } = usePlanLimits();
+  const { createCheckoutSession, loading } = useSubscription();
   
   const [profile, setProfile] = useState({
     full_name: '',
     email: '',
     avatar_url: ''
   });
-  const [loading, setLoading] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -70,7 +74,7 @@ export const SettingsPage = () => {
   const saveProfile = async () => {
     if (!user) return;
 
-    setLoading(true);
+    setProfileLoading(true);
     try {
       const { error } = await supabase
         .from('profiles')
@@ -96,7 +100,7 @@ export const SettingsPage = () => {
         variant: "destructive"
       });
     } finally {
-      setLoading(false);
+      setProfileLoading(false);
     }
   };
 
@@ -155,9 +159,9 @@ export const SettingsPage = () => {
               placeholder="Enter avatar URL (optional)"
             />
           </div>
-          <Button onClick={saveProfile} disabled={loading}>
+          <Button onClick={saveProfile} disabled={profileLoading}>
             <Save className="mr-2 h-4 w-4" />
-            {loading ? 'Saving...' : 'Save Profile'}
+            {profileLoading ? 'Saving...' : 'Save Profile'}
           </Button>
         </CardContent>
       </Card>
@@ -185,6 +189,39 @@ export const SettingsPage = () => {
               checked={theme === 'dark'}
               onCheckedChange={toggleTheme}
             />
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Plan & Billing */}
+      <Card>
+        <CardHeader>
+          <CardTitle>Plan & Billing</CardTitle>
+          <CardDescription>
+            Manage your subscription and billing settings.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium">Current Plan</p>
+              <p className="text-sm text-muted-foreground capitalize">
+                {planLimits.plan} Plan
+              </p>
+            </div>
+            {(planLimits.plan === 'free' || planLimits.plan === 'trial') && (
+              <Button 
+                onClick={() => createCheckoutSession('professional')} 
+                disabled={loading}
+              >
+                <Zap className="mr-2 h-4 w-4" />
+                Upgrade to Pro
+              </Button>
+            )}
+          </div>
+          <div className="text-sm text-muted-foreground">
+            <p>Clients: {planLimits.maxClients === -1 ? 'Unlimited' : planLimits.maxClients}</p>
+            <p>Storage: {planLimits.maxStorage} GB</p>
           </div>
         </CardContent>
       </Card>
