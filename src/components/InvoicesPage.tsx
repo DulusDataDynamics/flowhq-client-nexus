@@ -16,7 +16,8 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Plus, FileText, DollarSign, Calendar, Eye } from 'lucide-react';
+import { Plus, FileText, DollarSign, Calendar } from 'lucide-react';
+import { InvoiceActions } from './invoices/InvoiceActions';
 
 interface Invoice {
   id: string;
@@ -121,13 +122,13 @@ export const InvoicesPage = () => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'paid':
-        return 'bg-green-100 text-green-800';
+        return 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300';
       case 'sent':
-        return 'bg-blue-100 text-blue-800';
+        return 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300';
       case 'overdue':
-        return 'bg-red-100 text-red-800';
+        return 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300';
     }
   };
 
@@ -289,9 +290,7 @@ export const InvoicesPage = () => {
                     </span>
                   </TableCell>
                   <TableCell>
-                    <Button variant="ghost" size="sm">
-                      <Eye className="h-4 w-4" />
-                    </Button>
+                    <InvoiceActions invoice={invoice} />
                   </TableCell>
                 </TableRow>
               ))}

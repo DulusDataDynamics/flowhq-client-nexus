@@ -1,193 +1,103 @@
 
-import { useState } from 'react';
+import { ReactNode } from 'react';
 import { Button } from '@/components/ui/button';
 import { useAuth } from '@/contexts/AuthContext';
-import { usePlanLimits } from '@/hooks/usePlanLimits';
-import { useSubscription } from '@/hooks/useSubscription';
+import { useTheme } from '@/contexts/ThemeContext';
 import { 
   LayoutDashboard, 
-  Users,
-  FileText,
-  DollarSign,
+  Users, 
+  FileText, 
+  Receipt, 
   Bot, 
-  Settings, 
-  LogOut,
-  Menu,
-  X,
-  Zap
+  Settings,
+  Moon,
+  Sun,
+  LogOut
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { supabase } from '@/integrations/supabase/client';
-import { useEffect, useState as useStateHook } from 'react';
 
 interface DashboardLayoutProps {
-  children: React.ReactNode;
+  children: ReactNode;
   currentPage: string;
   onPageChange: (page: string) => void;
 }
 
 export const DashboardLayout = ({ children, currentPage, onPageChange }: DashboardLayoutProps) => {
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [clientCount, setClientCount] = useStateHook(0);
-  const { signOut, user } = useAuth();
-  const { planLimits } = usePlanLimits();
-  const { createCheckoutSession, loading } = useSubscription();
+  const { user, signOut } = useAuth();
+  const { theme, toggleTheme } = useTheme();
 
-  useEffect(() => {
-    loadClientCount();
-  }, [user]);
-
-  const loadClientCount = async () => {
-    if (!user) return;
-
-    try {
-      const { count } = await supabase
-        .from('projects')
-        .select('id', { count: 'exact' })
-        .eq('user_id', user.id);
-      
-      setClientCount(count || 0);
-    } catch (error) {
-      console.error('Error loading client count:', error);
-    }
-  };
-
-  const menuItems = [
+  const navigationItems = [
     { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { id: 'clients', label: 'Clients', icon: Users },
     { id: 'files', label: 'Files', icon: FileText },
-    { id: 'invoices', label: 'Invoices', icon: DollarSign },
+    { id: 'invoices', label: 'Invoices', icon: Receipt },
     { id: 'flowbot', label: 'FlowBot', icon: Bot },
     { id: 'settings', label: 'Settings', icon: Settings },
   ];
 
-  const handleSignOut = async () => {
-    await signOut();
-  };
-
-  const handleUpgrade = async (planName: string) => {
-    await createCheckoutSession(planName);
-  };
-
-  const getClientUsagePercentage = () => {
-    if (planLimits.maxClients === -1) return 20;
-    return Math.min((clientCount / planLimits.maxClients) * 100, 100);
-  };
-
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Mobile menu button */}
-      <div className="lg:hidden bg-white shadow-sm border-b p-4">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => setSidebarOpen(!sidebarOpen)}
-        >
-          {sidebarOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </Button>
-      </div>
-
-      {/* Sidebar */}
-      <div className={cn(
-        "fixed inset-y-0 left-0 z-50 w-64 bg-white shadow-lg transform transition-transform duration-200 ease-in-out lg:translate-x-0",
-        sidebarOpen ? "translate-x-0" : "-translate-x-full"
-      )}>
-        <div className="flex flex-col h-full">
-          <div className="p-6 border-b">
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">F</span>
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-gray-900">FlowHQ</h1>
-                <p className="text-xs text-gray-500">Client Portal</p>
-              </div>
-            </div>
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="border-b bg-card">
+        <div className="flex h-16 items-center px-6 justify-between">
+          <div className="flex items-center gap-2">
+            <img 
+              src="/lovable-uploads/145a6803-ea1f-4fd7-860e-128cf9e7988e.png" 
+              alt="FlowHQ Logo" 
+              className="h-8 w-8"
+            />
+            <h1 className="text-2xl font-bold">FlowHQ</h1>
           </div>
           
-          <div className="p-4">
-            <div className="bg-blue-50 rounded-lg p-3 mb-4">
-              <div className="flex items-center justify-between mb-1">
-                <span className="text-xs font-medium text-blue-700">
-                  {planLimits.plan.charAt(0).toUpperCase() + planLimits.plan.slice(1)} Plan
-                </span>
-                <span className="text-xs text-blue-600">
-                  {planLimits.maxClients === -1 ? 'Unlimited' : `${clientCount} of ${planLimits.maxClients} clients`}
-                </span>
-              </div>
-              <div className="w-full bg-blue-200 rounded-full h-1.5">
-                <div 
-                  className="bg-blue-600 h-1.5 rounded-full" 
-                  style={{ width: `${getClientUsagePercentage()}%` }}
-                ></div>
-              </div>
-              {(planLimits.plan === 'free' || planLimits.plan === 'trial') && (
-                <Button 
-                  size="sm" 
-                  className="w-full mt-2 text-xs"
-                  onClick={() => handleUpgrade('professional')}
-                  disabled={loading}
-                >
-                  <Zap className="mr-1 h-3 w-3" />
-                  Upgrade
-                </Button>
-              )}
-            </div>
-          </div>
-          
-          <nav className="flex-1 p-4">
-            <div className="space-y-1">
-              {menuItems.map((item) => {
-                const Icon = item.icon;
-                return (
-                  <Button
-                    key={item.id}
-                    variant={currentPage === item.id ? "default" : "ghost"}
-                    className="w-full justify-start"
-                    onClick={() => {
-                      onPageChange(item.id);
-                      setSidebarOpen(false);
-                    }}
-                  >
-                    <Icon className="mr-3 h-4 w-4" />
-                    {item.label}
-                  </Button>
-                );
-              })}
-            </div>
-          </nav>
-          
-          <div className="p-4 border-t">
-            <div className="mb-4">
-              <p className="text-sm font-medium truncate">{user?.email}</p>
-              <p className="text-xs text-gray-500">Logged in</p>
-            </div>
+          <div className="flex items-center gap-2">
             <Button
               variant="ghost"
-              className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
-              onClick={handleSignOut}
+              size="icon"
+              onClick={toggleTheme}
             >
-              <LogOut className="mr-3 h-4 w-4" />
-              Sign out
+              {theme === 'dark' ? (
+                <Sun className="h-5 w-5" />
+              ) : (
+                <Moon className="h-5 w-5" />
+              )}
+            </Button>
+            
+            <span className="text-sm text-muted-foreground">
+              {user?.email}
+            </span>
+            
+            <Button variant="ghost" size="icon" onClick={signOut}>
+              <LogOut className="h-5 w-5" />
             </Button>
           </div>
         </div>
-      </div>
+      </header>
 
-      {/* Main content */}
-      <div className="lg:pl-64">
-        <div className="p-4 lg:p-8">
+      <div className="flex">
+        {/* Sidebar */}
+        <aside className="w-64 border-r bg-card min-h-[calc(100vh-64px)]">
+          <nav className="p-4 space-y-2">
+            {navigationItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <Button
+                  key={item.id}
+                  variant={currentPage === item.id ? 'default' : 'ghost'}
+                  className="w-full justify-start"
+                  onClick={() => onPageChange(item.id)}
+                >
+                  <Icon className="mr-2 h-4 w-4" />
+                  {item.label}
+                </Button>
+              );
+            })}
+          </nav>
+        </aside>
+
+        {/* Main Content */}
+        <main className="flex-1 p-6">
           {children}
-        </div>
+        </main>
       </div>
-
-      {/* Mobile sidebar overlay */}
-      {sidebarOpen && (
-        <div 
-          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
-          onClick={() => setSidebarOpen(false)}
-        />
-      )}
     </div>
   );
 };
