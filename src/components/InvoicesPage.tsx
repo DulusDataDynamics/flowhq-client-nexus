@@ -18,18 +18,9 @@ import {
 } from '@/components/ui/table';
 import { Plus, FileText, DollarSign, Calendar } from 'lucide-react';
 import { InvoiceActions } from './invoices/InvoiceActions';
+import type { Tables } from '@/integrations/supabase/types';
 
-interface Invoice {
-  id: string;
-  client_name: string;
-  client_email?: string;
-  client_phone?: string;
-  amount: number;
-  description: string;
-  due_date: string;
-  status: 'draft' | 'sent' | 'paid' | 'overdue';
-  created_at: string;
-}
+type Invoice = Tables<'invoices'>;
 
 export const InvoicesPage = () => {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
@@ -40,7 +31,7 @@ export const InvoicesPage = () => {
     client_email: '',
     client_phone: '',
     amount: '',
-    description: '',
+    notes: '',
     due_date: ''
   });
   const { user } = useAuth();
@@ -54,9 +45,13 @@ export const InvoicesPage = () => {
     if (!user) return;
 
     try {
-      // For now, we'll use an empty array since we're removing mock data
-      // In a real app, you'd fetch from a proper invoices table
-      setInvoices([]);
+      const { data, error } = await supabase
+        .from('invoices')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      setInvoices(data || []);
     } catch (error) {
       console.error('Error loading invoices:', error);
       toast({
@@ -69,31 +64,46 @@ export const InvoicesPage = () => {
     }
   };
 
+  const generateInvoiceNumber = () => {
+    const date = new Date();
+    const timestamp = date.getTime().toString().slice(-6);
+    return `INV-${timestamp}`;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!user) return;
 
     try {
-      const newInvoice: Invoice = {
-        id: Date.now().toString(),
+      const invoiceData = {
+        user_id: user.id,
         client_name: formData.client_name,
-        client_email: formData.client_email,
-        client_phone: formData.client_phone,
+        client_email: formData.client_email || null,
+        client_phone: formData.client_phone || null,
+        invoice_number: generateInvoiceNumber(),
         amount: parseFloat(formData.amount),
-        description: formData.description,
-        due_date: formData.due_date,
-        status: 'draft',
-        created_at: new Date().toISOString()
+        notes: formData.notes || null,
+        due_date: formData.due_date || null,
+        status: 'draft' as const,
+        currency: 'USD'
       };
 
-      setInvoices(prev => [...prev, newInvoice]);
+      const { data, error } = await supabase
+        .from('invoices')
+        .insert([invoiceData])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      setInvoices(prev => [data, ...prev]);
       setShowForm(false);
       setFormData({ 
         client_name: '', 
         client_email: '', 
         client_phone: '', 
         amount: '', 
-        description: '', 
+        notes: '', 
         due_date: '' 
       });
 
@@ -244,11 +254,11 @@ export const InvoicesPage = () => {
                 </div>
               </div>
               <div>
-                <Label htmlFor="description">Description</Label>
+                <Label htmlFor="notes">Description/Notes</Label>
                 <Textarea
-                  id="description"
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
+                  id="notes"
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   rows={3}
                 />
               </div>
@@ -259,7 +269,6 @@ export const InvoicesPage = () => {
                   type="date"
                   value={formData.due_date}
                   onChange={(e) => setFormData({ ...formData, due_date: e.target.value })}
-                  required
                 />
               </div>
               <div className="flex gap-2">
@@ -283,9 +292,9 @@ export const InvoicesPage = () => {
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead>Invoice #</TableHead>
                 <TableHead>Client</TableHead>
                 <TableHead>Amount</TableHead>
-                <TableHead>Description</TableHead>
                 <TableHead>Due Date</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Actions</TableHead>
@@ -294,12 +303,14 @@ export const InvoicesPage = () => {
             <TableBody>
               {invoices.map((invoice) => (
                 <TableRow key={invoice.id}>
-                  <TableCell className="font-medium">{invoice.client_name}</TableCell>
+                  <TableCell className="font-medium">{invoice.invoice_number}</TableCell>
+                  <TableCell>{invoice.client_name}</TableCell>
                   <TableCell>${invoice.amount.toLocaleString()}</TableCell>
-                  <TableCell>{invoice.description}</TableCell>
-                  <TableCell>{new Date(invoice.due_date).toLocaleDateString()}</TableCell>
                   <TableCell>
-                    <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(invoice.status)}`}>
+                    {invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : 'No due date'}
+                  </TableCell>
+                  <TableCell>
+                    <span className={`px-2 py-1 rounded-full text-xs ${getStatusColor(invoice.status || 'draft')}`}>
                       {invoice.status}
                     </span>
                   </TableCell>

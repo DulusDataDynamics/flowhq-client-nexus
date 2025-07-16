@@ -17,18 +17,9 @@ import {
 import { Eye, MessageSquare, Share, Download, FileText, FileSpreadsheet, FileImage, Mail, Phone } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { exportToPDF, exportToExcel, exportToWord } from '@/utils/exportUtils';
+import type { Tables } from '@/integrations/supabase/types';
 
-interface Invoice {
-  id: string;
-  client_name: string;
-  client_email?: string;
-  client_phone?: string;
-  amount: number;
-  description: string;
-  due_date: string;
-  status: 'draft' | 'sent' | 'paid' | 'overdue';
-  created_at: string;
-}
+type Invoice = Tables<'invoices'>;
 
 interface InvoiceActionsProps {
   invoice: Invoice;
@@ -49,7 +40,7 @@ export const InvoiceActions = ({ invoice }: InvoiceActionsProps) => {
 
   const handleWhatsApp = () => {
     if (invoice.client_phone) {
-      const message = `Hi ${invoice.client_name}, your invoice for $${invoice.amount} is ready. Due date: ${new Date(invoice.due_date).toLocaleDateString()}`;
+      const message = `Hi ${invoice.client_name}, your invoice ${invoice.invoice_number} for $${invoice.amount} is ready. ${invoice.due_date ? `Due date: ${new Date(invoice.due_date).toLocaleDateString()}` : ''}`;
       const whatsappUrl = `https://wa.me/${invoice.client_phone.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
       window.open(whatsappUrl, '_blank');
       toast({
@@ -68,8 +59,8 @@ export const InvoiceActions = ({ invoice }: InvoiceActionsProps) => {
 
   const handleEmail = () => {
     if (invoice.client_email) {
-      const subject = `Invoice - ${invoice.client_name}`;
-      const body = `Dear ${invoice.client_name},\n\nYour invoice for $${invoice.amount} is ready.\nDescription: ${invoice.description}\nDue Date: ${new Date(invoice.due_date).toLocaleDateString()}\n\nThank you for your business!`;
+      const subject = `Invoice ${invoice.invoice_number} - ${invoice.client_name}`;
+      const body = `Dear ${invoice.client_name},\n\nYour invoice ${invoice.invoice_number} for $${invoice.amount} is ready.\n${invoice.notes ? `Notes: ${invoice.notes}\n` : ''}${invoice.due_date ? `Due Date: ${new Date(invoice.due_date).toLocaleDateString()}\n` : ''}\nThank you for your business!`;
       const emailUrl = `mailto:${invoice.client_email}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
       window.open(emailUrl, '_blank');
       toast({
@@ -90,7 +81,7 @@ export const InvoiceActions = ({ invoice }: InvoiceActionsProps) => {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: `Invoice - ${invoice.client_name}`,
+          title: `Invoice ${invoice.invoice_number} - ${invoice.client_name}`,
           text: `Invoice for ${invoice.client_name} - $${invoice.amount}`,
           url: window.location.href,
         });
@@ -108,26 +99,29 @@ export const InvoiceActions = ({ invoice }: InvoiceActionsProps) => {
 
   const handleDownload = (format: 'pdf' | 'excel' | 'word') => {
     const invoiceData = [{
-      'Invoice ID': invoice.id,
+      'Invoice Number': invoice.invoice_number,
       'Client Name': invoice.client_name,
+      'Client Email': invoice.client_email || '',
+      'Client Phone': invoice.client_phone || '',
       'Amount': `$${invoice.amount}`,
-      'Description': invoice.description,
-      'Due Date': new Date(invoice.due_date).toLocaleDateString(),
-      'Status': invoice.status,
+      'Currency': invoice.currency || 'USD',
+      'Notes': invoice.notes || '',
+      'Due Date': invoice.due_date ? new Date(invoice.due_date).toLocaleDateString() : '',
+      'Status': invoice.status || 'draft',
       'Created': new Date(invoice.created_at).toLocaleDateString()
     }];
 
-    const filename = `invoice-${invoice.client_name.replace(/\s+/g, '-').toLowerCase()}`;
+    const filename = `invoice-${invoice.invoice_number.replace(/\s+/g, '-').toLowerCase()}`;
 
     switch (format) {
       case 'pdf':
-        exportToPDF(invoiceData, filename, `Invoice - ${invoice.client_name}`);
+        exportToPDF(invoiceData, filename, `Invoice ${invoice.invoice_number} - ${invoice.client_name}`);
         break;
       case 'excel':
         exportToExcel(invoiceData, filename);
         break;
       case 'word':
-        exportToWord(invoiceData, filename, `Invoice - ${invoice.client_name}`);
+        exportToWord(invoiceData, filename, `Invoice ${invoice.invoice_number} - ${invoice.client_name}`);
         break;
     }
 
@@ -184,26 +178,40 @@ export const InvoiceActions = ({ invoice }: InvoiceActionsProps) => {
           <div className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-sm font-medium">Client Name</label>
-                <p className="text-lg">{invoice.client_name}</p>
+                <label className="text-sm font-medium">Invoice Number</label>
+                <p className="text-lg">{invoice.invoice_number}</p>
               </div>
               <div>
                 <label className="text-sm font-medium">Amount</label>
                 <p className="text-lg font-bold text-green-600">${invoice.amount.toLocaleString()}</p>
               </div>
             </div>
-            <div>
-              <label className="text-sm font-medium">Description</label>
-              <p>{invoice.description}</p>
-            </div>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-sm font-medium">Due Date</label>
-                <p>{new Date(invoice.due_date).toLocaleDateString()}</p>
+                <label className="text-sm font-medium">Client Name</label>
+                <p>{invoice.client_name}</p>
               </div>
               <div>
                 <label className="text-sm font-medium">Status</label>
                 <p className="capitalize">{invoice.status}</p>
+              </div>
+            </div>
+            {invoice.notes && (
+              <div>
+                <label className="text-sm font-medium">Notes</label>
+                <p>{invoice.notes}</p>
+              </div>
+            )}
+            <div className="grid grid-cols-2 gap-4">
+              {invoice.due_date && (
+                <div>
+                  <label className="text-sm font-medium">Due Date</label>
+                  <p>{new Date(invoice.due_date).toLocaleDateString()}</p>
+                </div>
+              )}
+              <div>
+                <label className="text-sm font-medium">Created</label>
+                <p>{new Date(invoice.created_at).toLocaleDateString()}</p>
               </div>
             </div>
             {(invoice.client_email || invoice.client_phone) && (

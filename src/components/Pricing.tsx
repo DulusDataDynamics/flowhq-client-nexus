@@ -11,23 +11,9 @@ const Pricing = () => {
 
   const plans = [
     {
-      name: "Free",
-      price: "$0",
-      period: "forever",
-      description: "Perfect for trying out FlowHQ",
-      features: [
-        "1 active client",
-        "1GB storage",
-        "Basic messaging",
-        "Community support"
-      ],
-      cta: "Get Started",
-      popular: false
-    },
-    {
       name: "Trial",
       price: "$0",
-      period: "30 days",
+      period: "5 days",
       description: "Full access to test all features",
       features: [
         "30 active clients",
@@ -37,11 +23,11 @@ const Pricing = () => {
         "FlowBot AI Assistant"
       ],
       cta: "Start Free Trial",
-      popular: true
+      popular: false
     },
     {
       name: "Professional",
-      price: isAnnual ? "$29" : "$35",
+      price: isAnnual ? "$20" : "$20",
       period: isAnnual ? "/month (billed annually)" : "/month",
       description: "Everything you need to grow",
       features: [
@@ -55,7 +41,7 @@ const Pricing = () => {
         "Payment processing"
       ],
       cta: "Start Professional",
-      popular: false
+      popular: true
     },
     {
       name: "Agency",
@@ -122,7 +108,7 @@ const Pricing = () => {
           </div>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
+        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
           {plans.map((plan, index) => (
             <Card 
               key={index} 
