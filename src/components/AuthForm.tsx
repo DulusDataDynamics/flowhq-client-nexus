@@ -27,7 +27,7 @@ export const AuthForm = () => {
   };
 
   const signUp = async (email: string, password: string, fullName: string) => {
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -35,7 +35,25 @@ export const AuthForm = () => {
         emailRedirectTo: `${window.location.origin}/`
       }
     });
+    
     if (error) throw error;
+
+    // If user is created immediately (no email confirmation required)
+    if (data.user && !data.user.email_confirmed_at) {
+      // Set up the profile with trial automatically
+      const trialEndDate = new Date();
+      trialEndDate.setDate(trialEndDate.getDate() + 5);
+
+      await supabase
+        .from('profiles')
+        .insert({
+          id: data.user.id,
+          email: data.user.email,
+          full_name: fullName,
+          plan: 'trial',
+          trial_end: trialEndDate.toISOString(),
+        });
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -45,11 +63,15 @@ export const AuthForm = () => {
     try {
       if (isLogin) {
         await signIn(email, password);
+        toast({
+          title: "Welcome back!",
+          description: "You have successfully signed in.",
+        });
       } else {
         await signUp(email, password, fullName);
         toast({
-          title: "Success",
-          description: "Account created successfully! Please check your email to verify your account.",
+          title: "Account created successfully!",
+          description: "Your 5-day free trial has started. Please check your email to verify your account.",
           duration: 5000
         });
       }
@@ -77,7 +99,7 @@ export const AuthForm = () => {
             <CardDescription className="text-center">
               {isLogin 
                 ? 'Enter your credentials to access FlowHQ' 
-                : 'Sign up to get started with FlowHQ'
+                : 'Sign up to get started with a 5-day free trial'
               }
             </CardDescription>
           </CardHeader>
@@ -117,7 +139,7 @@ export const AuthForm = () => {
                 className="w-full"
                 disabled={loading}
               >
-                {loading ? 'Loading...' : (isLogin ? 'Sign In' : 'Sign Up')}
+                {loading ? 'Loading...' : (isLogin ? 'Sign In' : 'Start Free Trial')}
               </Button>
             </form>
             
@@ -128,7 +150,7 @@ export const AuthForm = () => {
                 className="text-sm"
               >
                 {isLogin 
-                  ? "Don't have an account? Sign up" 
+                  ? "Don't have an account? Start free trial" 
                   : 'Already have an account? Sign in'
                 }
               </Button>

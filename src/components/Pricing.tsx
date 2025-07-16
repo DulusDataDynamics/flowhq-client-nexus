@@ -11,21 +11,6 @@ const Pricing = () => {
 
   const plans = [
     {
-      name: "Trial",
-      price: "$0",
-      period: "5 days",
-      description: "Full access to test all features",
-      features: [
-        "30 active clients",
-        "5GB storage",
-        "All messaging features",
-        "Email support",
-        "FlowBot AI Assistant"
-      ],
-      cta: "Start Free Trial",
-      popular: false
-    },
-    {
       name: "Professional",
       price: isAnnual ? "$20" : "$20",
       period: isAnnual ? "/month (billed annually)" : "/month",
@@ -81,7 +66,7 @@ const Pricing = () => {
             Simple, Transparent Pricing
           </h2>
           <p className="text-xl text-gray-600 mb-8">
-            Choose the perfect plan for your client management needs
+            Start with a 5-day free trial, then choose your plan
           </p>
           
           {/* Billing Toggle */}
@@ -108,7 +93,7 @@ const Pricing = () => {
           </div>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <div className="grid md:grid-cols-2 gap-8 max-w-4xl mx-auto">
           {plans.map((plan, index) => (
             <Card 
               key={index} 
@@ -161,7 +146,6 @@ const Pricing = () => {
                   }`}
                   onClick={() => handleGetStarted(plan.name)}
                 >
-                  {plan.name === 'Trial' && <Zap className="mr-2 h-4 w-4" />}
                   {plan.cta}
                 </Button>
               </CardContent>

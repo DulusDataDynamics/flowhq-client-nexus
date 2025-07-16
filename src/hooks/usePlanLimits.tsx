@@ -8,14 +8,17 @@ interface PlanLimits {
   maxStorage: number; // in GB
   plan: string;
   features: string[];
+  trialExpired?: boolean;
+  trialEndDate?: string;
 }
 
 export const usePlanLimits = () => {
   const [planLimits, setPlanLimits] = useState<PlanLimits>({
     maxClients: 0,
     maxStorage: 0,
-    plan: 'free',
-    features: []
+    plan: 'trial',
+    features: [],
+    trialExpired: false
   });
   const [loading, setLoading] = useState(true);
   const { user } = useAuth();
@@ -33,7 +36,7 @@ export const usePlanLimits = () => {
     try {
       const { data: profile, error } = await supabase
         .from('profiles')
-        .select('plan')
+        .select('plan, trial_end')
         .eq('id', user.id)
         .single();
 
@@ -42,9 +45,31 @@ export const usePlanLimits = () => {
         return;
       }
 
-      const userPlan = profile?.plan || 'free';
+      let userPlan = profile?.plan || 'trial';
+      let trialExpired = false;
+      
+      // Check if trial has expired
+      if (userPlan === 'trial' && profile?.trial_end) {
+        const trialEndDate = new Date(profile.trial_end);
+        const now = new Date();
+        
+        if (now > trialEndDate) {
+          trialExpired = true;
+          // Update plan to expired trial in database
+          await supabase
+            .from('profiles')
+            .update({ plan: 'expired_trial' })
+            .eq('id', user.id);
+          userPlan = 'expired_trial';
+        }
+      }
+
       const limits = getPlanLimits(userPlan);
-      setPlanLimits(limits);
+      setPlanLimits({
+        ...limits,
+        trialExpired,
+        trialEndDate: profile?.trial_end
+      });
 
     } catch (error) {
       console.error('Error loading plan limits:', error);
@@ -76,12 +101,13 @@ export const usePlanLimits = () => {
           plan: 'agency',
           features: ['Team Collaboration', 'White-Label Solution', 'Advanced Workflows', 'API Access', 'Dedicated Support', 'Custom Integrations']
         };
+      case 'expired_trial':
       default:
         return {
-          maxClients: 1,
-          maxStorage: 1,
-          plan: 'free',
-          features: ['Basic Features Only']
+          maxClients: 0,
+          maxStorage: 0,
+          plan: 'expired_trial',
+          features: ['Trial Expired - Please Upgrade']
         };
     }
   };

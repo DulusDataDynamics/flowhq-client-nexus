@@ -58,59 +58,8 @@ export const useSubscription = () => {
     }
   };
 
-  const startFreeTrial = async () => {
-    if (!user) {
-      toast({
-        title: "Authentication required",
-        description: "Please sign in to start your free trial",
-        variant: "destructive"
-      });
-      return;
-    }
-
-    setLoading(true);
-
-    try {
-      console.log('Starting free trial for user:', user.id);
-      
-      const { error } = await supabase
-        .from('profiles')
-        .update({ 
-          plan: 'trial',
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', user.id);
-
-      if (error) {
-        console.error('Database error:', error);
-        throw error;
-      }
-
-      toast({
-        title: "Free trial started!",
-        description: "You now have access to 30 clients and premium features for your trial period.",
-      });
-
-      // Refresh the page to update the UI
-      setTimeout(() => {
-        window.location.reload();
-      }, 1500);
-
-    } catch (error) {
-      console.error('Error starting free trial:', error);
-      toast({
-        title: "Error",
-        description: error.message || "Failed to start free trial. Please try again.",
-        variant: "destructive"
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
   return {
     createCheckoutSession,
-    startFreeTrial,
     loading
   };
 };
