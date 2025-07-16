@@ -9,7 +9,6 @@ import { supabase } from '@/integrations/supabase/client';
 import { usePlanLimits } from '@/hooks/usePlanLimits';
 import { useSubscription } from '@/hooks/useSubscription';
 import { useToast } from '@/hooks/use-toast';
-import { Zap } from 'lucide-react';
 
 interface DashboardOverviewProps {
   onNavigate: (page: string) => void;
@@ -24,7 +23,7 @@ export const DashboardOverview = ({ onNavigate }: DashboardOverviewProps) => {
   });
   const { user } = useAuth();
   const { planLimits, refreshPlan } = usePlanLimits();
-  const { createCheckoutSession, startFreeTrial, loading } = useSubscription();
+  const { startFreeTrial, loading } = useSubscription();
   const { toast } = useToast();
 
   useEffect(() => {
@@ -87,21 +86,6 @@ export const DashboardOverview = ({ onNavigate }: DashboardOverviewProps) => {
 
   return (
     <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <div>
-          <h2 className="text-3xl font-bold tracking-tight">Dashboard</h2>
-          <p className="text-muted-foreground">
-            Welcome back! Here's what's happening with your FlowHQ workspace.
-          </p>
-        </div>
-        {(planLimits.plan === 'free' || planLimits.plan === 'trial') && (
-          <Button onClick={() => createCheckoutSession('professional')} disabled={loading}>
-            <Zap className="mr-2 h-4 w-4" />
-            Upgrade Plan
-          </Button>
-        )}
-      </div>
-
       <DashboardStats stats={stats} />
 
       <Card>
@@ -153,16 +137,6 @@ export const DashboardOverview = ({ onNavigate }: DashboardOverviewProps) => {
                 disabled={loading}
               >
                 Start Free Trial (30 Clients)
-              </Button>
-            )}
-            {(planLimits.plan === 'trial' || planLimits.plan === 'free') && (
-              <Button 
-                variant="outline" 
-                className="w-full"
-                onClick={() => createCheckoutSession('professional')}
-                disabled={loading}
-              >
-                Upgrade to Professional (150 Clients)
               </Button>
             )}
           </div>
